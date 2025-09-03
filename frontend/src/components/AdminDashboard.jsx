@@ -1,8 +1,14 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
-import CatalogoTab from "./CatalogoTab";
+import axios from "axios";
+
+import CatalogoTab from "./catalogo/CatalogoTab";
 import CategoriasTab from "./CategoriasTab";
 import PagosTab from "./PagosTab";
+import ImpresionesTab from "./ImpresionesTab";
+import VendedorasTab from "./VendedorasTab";
+import SeguridadTab from "./SeguridadTab";
+import ConfiguracionTab from "./ConfiguracionTab";
 
 import {
   Printer,
@@ -10,27 +16,21 @@ import {
   ClipboardList,
   CreditCard,
   DollarSign,
-  CheckCircle,
-  XCircle,
-  Hourglass
 } from "lucide-react";
 
 export default function AdminDashboard() {
   const { user, logout } = useContext(AuthContext);
+
+  // Estado de métricas
+  const [metrics, setMetrics] = useState([
+    { title: "Vendedoras", value: 0, icon: Users, color: "bg-blue-500" },
+    { title: "Órdenes activas", value: 0, icon: ClipboardList, color: "bg-green-500" },
+    { title: "Pagos pendientes", value: 0, icon: CreditCard, color: "bg-yellow-500" },
+    { title: "Ingresos del mes", value: "$0", icon: DollarSign, color: "bg-purple-500" },
+  ]);
+
+  // Estado de pestañas
   const [activeTab, setActiveTab] = useState("vendedoras");
-  const [vendedorasData] = useState({
-    pendientes: 2,
-    aprobadas: 5,
-    rechazadas: 1,
-  });
-
-  const metrics = [
-    { title: "Vendedoras", value: vendedorasData.aprobadas + vendedorasData.pendientes + vendedorasData.rechazadas, icon: Users, color: "bg-blue-500" },
-    { title: "Órdenes activas", value: 7, icon: ClipboardList, color: "bg-green-500" },
-    { title: "Pagos pendientes", value: 3, icon: CreditCard, color: "bg-yellow-500" },
-    { title: "Ingresos del mes", value: "$4,500", icon: DollarSign, color: "bg-purple-500" },
-  ];
-
   const tabs = [
     { id: "vendedoras", label: "Vendedoras" },
     { id: "catalogo", label: "Catálogo" },
@@ -40,6 +40,32 @@ export default function AdminDashboard() {
     { id: "seguridad", label: "Seguridad" },
     { id: "configuracion", label: "Configuración" },
   ];
+
+  // Traer métricas desde backend
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const res = await axios.get("http://127.0.0.1:8000/dashboard/");
+        const data = res.data;
+
+        setMetrics([
+          {
+            title: "Vendedoras",
+            value: data.vendedoras.aprobadas + data.vendedoras.pendientes + data.vendedoras.rechazadas,
+            icon: Users,
+            color: "bg-blue-500",
+          },
+          { title: "Órdenes activas", value: data.ordenes_activas, icon: ClipboardList, color: "bg-green-500" },
+          { title: "Pagos pendientes", value: data.pagos_pendientes, icon: CreditCard, color: "bg-yellow-500" },
+          { title: "Ingresos del mes", value: `$${data.ingresos_mes}`, icon: DollarSign, color: "bg-purple-500" },
+        ]);
+      } catch (err) {
+        console.error("Error al traer métricas:", err);
+      }
+    };
+
+    fetchMetrics();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -51,10 +77,7 @@ export default function AdminDashboard() {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-gray-700 font-medium">{user?.username || "No hay usuario"}</span>
-          <button
-            onClick={logout}
-            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
-          >
+          <button onClick={logout} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors">
             Salir
           </button>
         </div>
@@ -63,15 +86,7 @@ export default function AdminDashboard() {
       {/* Tarjetas principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-6">
         {metrics.map((metric) => (
-          <div key={metric.title} className="bg-white rounded-2xl shadow p-4 flex items-center gap-4">
-            <div className={`${metric.color} w-12 h-12 flex items-center justify-center rounded-full text-white`}>
-              <metric.icon className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-gray-500 text-sm">{metric.title}</h3>
-              <p className="text-lg font-bold">{metric.value}</p>
-            </div>
-          </div>
+          <MetricCard key={metric.title} {...metric} />
         ))}
       </div>
 
@@ -92,46 +107,20 @@ export default function AdminDashboard() {
 
       {/* Contenido de la pestaña */}
       <div className="p-6">
-        {activeTab === "vendedoras" && (
-          <>
-            {/* Tarjetas de gestión de vendedoras */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <CardVendedora title="Pendientes" value={vendedorasData.pendientes} color="bg-yellow-400" icon={Hourglass} />
-              <CardVendedora title="Aprobadas" value={vendedorasData.aprobadas} color="bg-green-400" icon={CheckCircle} />
-              <CardVendedora title="Rechazadas" value={vendedorasData.rechazadas} color="bg-red-400" icon={XCircle} />
-            </div>
-
-            {/* Detalle pestañas */}
-            <div className="bg-white p-4 rounded-2xl shadow">
-              {vendedorasData.pendientes === 0 && vendedorasData.aprobadas === 0 && vendedorasData.rechazadas === 0 ? (
-                <p className="text-gray-500">No hay vendedoras registradas aún</p>
-              ) : (
-                <p className="text-gray-500">
-                  {vendedorasData.pendientes === 0
-                    ? "No hay vendedoras pendientes, todas las solicitudes han sido aprobadas"
-                    : `Hay ${vendedorasData.pendientes} vendedoras pendientes de aprobación`}
-                </p>
-              )}
-            </div>
-          </>
-        )}
-
+        {activeTab === "vendedoras" && <VendedorasTab />}
         {activeTab === "catalogo" && <CatalogoTab />}
-
-        {activeTab !== "vendedoras" && activeTab !== "catalogo" && (
-          <p className="text-gray-500">Contenido de {activeTab}</p>
-        )}
         {activeTab === "categorias" && <CategoriasTab />}
         {activeTab === "pagos" && <PagosTab />}
-
-
+        {activeTab === "impresion" && <ImpresionesTab />}
+        {activeTab === "seguridad" && <SeguridadTab />}
+        {activeTab === "configuracion" && <ConfiguracionTab />}
       </div>
     </div>
   );
 }
 
-// Componente de tarjeta de vendedora
-function CardVendedora({ title, value, color, icon: Icon }) {
+// Componente de tarjeta de métrica
+function MetricCard({ title, value, color, icon: Icon }) {
   return (
     <div className="bg-white rounded-2xl shadow p-4 flex items-center gap-4">
       <div className={`${color} w-12 h-12 flex items-center justify-center rounded-full text-white`}>
