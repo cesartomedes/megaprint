@@ -9,7 +9,9 @@ class Vendedora(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String)
     email = Column(String, unique=True)
+    password = Column(String)  # ⚠️ en producción, cifrar siempre
     estado = Column(String, default="pendiente")
+    role = Column(String, default="vendedora")  # roles: "vendedora" o "admin"
 
 class Categoria(Base):
     __tablename__ = "categorias"
@@ -42,4 +44,4 @@ class Volante(Base):
     __tablename__ = "volantes"
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String)
-
+    estado = Column(String, default="pendiente")  # pendiente, activa, completada, etc

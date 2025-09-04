@@ -13,7 +13,9 @@ export default function AuthForm() {
         <div className="flex flex-col items-center mb-6">
           <Printer className="w-16 h-16 text-blue-600" />
           <h1 className="text-2xl font-bold mt-2">MegaPrint</h1>
-          <p className="text-gray-500 text-sm">Sistema de gestión de impresiones</p>
+          <p className="text-gray-500 text-sm">
+            Sistema de gestión de impresiones
+          </p>
         </div>
 
         {/* Switch Login / Registro */}
@@ -37,7 +39,7 @@ export default function AuthForm() {
         </div>
 
         {/* Formulario */}
-        {isLogin ? <LoginForm /> : <RegisterForm />}
+        {isLogin ? <LoginForm /> : <RegisterForm setIsLogin={setIsLogin} />}
       </div>
     </div>
   );
@@ -45,18 +47,20 @@ export default function AuthForm() {
 
 // ------------------- Login -------------------
 function LoginForm() {
-  const { login } = useContext(AuthContext);
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { login, serverMessage } = useContext(AuthContext);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm();
   const [loading, setLoading] = useState(false);
-  const [serverMessage, setServerMessage] = useState("");
 
   const onSubmit = async (data) => {
     setLoading(true);
-    setServerMessage("");
     try {
-      await login(data);
+      await login({ username: data.nombre, password: data.password });
     } catch (err) {
-      setServerMessage(`❌ ${err.message}`);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -66,21 +70,29 @@ function LoginForm() {
     <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
       <input
         type="text"
-        placeholder="Usuario"
-        {...register("username", { required: "El usuario es obligatorio" })}
-        className={`border p-2 rounded ${errors.username ? "border-red-500" : ""}`}
+        placeholder="Nombre de usuario"
+        {...register("nombre", { required: "El nombre es obligatorio" })}
+        className={`border p-2 rounded ${errors.nombre ? "border-red-500" : ""}`}
       />
-      {errors.username && <span className="text-red-500 text-xs">{errors.username.message}</span>}
+      {errors.nombre && (
+        <span className="text-red-500 text-xs">{errors.nombre.message}</span>
+      )}
 
       <input
         type="password"
         placeholder="Contraseña"
-        {...register("password", { required: "La contraseña es obligatoria", minLength: { value: 4, message: "Mínimo 4 caracteres" } })}
+        {...register("password", { required: "La contraseña es obligatoria" })}
         className={`border p-2 rounded ${errors.password ? "border-red-500" : ""}`}
       />
-      {errors.password && <span className="text-red-500 text-xs">{errors.password.message}</span>}
+      {errors.password && (
+        <span className="text-red-500 text-xs">{errors.password.message}</span>
+      )}
 
-      <button type="submit" disabled={loading} className="bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50">
+      <button
+        type="submit"
+        disabled={loading}
+        className="bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+      >
         {loading ? "Ingresando..." : "Ingresar"}
       </button>
 
@@ -90,49 +102,76 @@ function LoginForm() {
 }
 
 // ------------------- Registro -------------------
-function RegisterForm() {
-  const { registerUser } = useContext(AuthContext);
-  const { register, handleSubmit, formState: { errors } } = useForm();
+function RegisterForm({ setIsLogin }) {
+  const { registerUser, serverMessage, logout } = useContext(AuthContext);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm();
   const [loading, setLoading] = useState(false);
-  const [serverMessage, setServerMessage] = useState("");
 
   const onSubmit = async (data) => {
     setLoading(true);
-    setServerMessage("");
     try {
-      await registerUser(data);
+      await registerUser({
+        nombre: data.nombre,
+        email: data.email,
+        password: data.password,
+      });
+
+      // Limpiar sesión actual si hay algo
+      logout(); // <-- función de AuthContext para cerrar sesión
+
+      // Mostrar alerta y volver al login
+      alert("Registro exitoso. En espera de ser aprobado.");
+      setIsLogin(true);
     } catch (err) {
-      setServerMessage(`❌ ${err.message}`);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
       <input
         type="text"
-        placeholder="Usuario"
-        {...register("username", { required: "El usuario es obligatorio", minLength: { value: 3, message: "Mínimo 3 caracteres" } })}
-        className={`border p-2 rounded ${errors.username ? "border-red-500" : ""}`}
+        placeholder="Nombre de usuario"
+        {...register("nombre", {
+          required: "El nombre es obligatorio",
+          minLength: { value: 3, message: "Mínimo 3 caracteres" },
+        })}
+        className={`border p-2 rounded ${errors.nombre ? "border-red-500" : ""}`}
       />
-      {errors.username && <span className="text-red-500 text-xs">{errors.username.message}</span>}
+      {errors.nombre && (
+        <span className="text-red-500 text-xs">{errors.nombre.message}</span>
+      )}
 
       <input
         type="email"
-        placeholder="ejemplo@correo.com"
-        {...register("email", { required: "El email es obligatorio", pattern: { value: /^\S+@\S+$/i, message: "Email inválido" } })}
+        placeholder="Correo electrónico"
+        {...register("email", {
+          required: "El correo es obligatorio",
+          pattern: { value: /^\S+@\S+\.\S+$/, message: "Correo inválido" },
+        })}
         className={`border p-2 rounded ${errors.email ? "border-red-500" : ""}`}
       />
-      {errors.email && <span className="text-red-500 text-xs">{errors.email.message}</span>}
+      {errors.email && (
+        <span className="text-red-500 text-xs">{errors.email.message}</span>
+      )}
 
       <input
         type="password"
         placeholder="Contraseña"
-        {...register("password", { required: "La contraseña es obligatoria", minLength: { value: 4, message: "Mínimo 4 caracteres" } })}
+        {...register("password", {
+          required: "La contraseña es obligatoria",
+          minLength: { value: 4, message: "Mínimo 4 caracteres" },
+        })}
         className={`border p-2 rounded ${errors.password ? "border-red-500" : ""}`}
       />
-      {errors.password && <span className="text-red-500 text-xs">{errors.password.message}</span>}
+      {errors.password && (
+        <span className="text-red-500 text-xs">{errors.password.message}</span>
+      )}
 
       <ul className="text-xs text-gray-500 list-disc pl-5">
         <li>No necesitas verificar tu correo electrónico</li>
@@ -140,7 +179,11 @@ function RegisterForm() {
         <li>Los nuevos usuarios son registrados como Vendedora por defecto</li>
       </ul>
 
-      <button type="submit" disabled={loading} className="bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50">
+      <button
+        type="submit"
+        disabled={loading}
+        className="bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+      >
         {loading ? "Creando..." : "Crear Cuenta"}
       </button>
 
