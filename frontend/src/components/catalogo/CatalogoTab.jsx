@@ -16,7 +16,7 @@ export default function CatalogoTab() {
   // Fetch vendedoras
   const fetchVendedoras = async () => {
     try {
-      const res = await axios.get("http://127.0.0.1:8000/vendedoras");
+      const res = await axios.get("http://127.0.0.1:8000/admin/vendedoras");
       setVendedoras(res.data);
     } catch {
       toast.error("Error al cargar vendedoras");
@@ -75,7 +75,7 @@ export default function CatalogoTab() {
       const formData = new FormData();
       formData.append("file", archivo);
       formData.append("nombre", nombrePdf);
-      formData.append("categoria_id", categoria); 
+      formData.append("categoria_id", categoria);
       if (vendedoraSeleccionada) {
         formData.append("vendedora_id", vendedoraSeleccionada.id);
       }
@@ -170,15 +170,6 @@ export default function CatalogoTab() {
                 </h3>
                 <p className="text-sm text-gray-600">
                   Categoría: {pdf.categoria || "-"}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Páginas: {pdf.paginas || "-"}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Formato: {pdf.formato || "-"}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Color: {pdf.color || "-"}
                 </p>
               </div>
 

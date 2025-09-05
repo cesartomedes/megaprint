@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import extract
 from database import get_db
 from models import Vendedora, Volante, Pago
+from datetime import datetime
 
 router = APIRouter()
 
@@ -16,17 +18,16 @@ def get_dashboard(db: Session = Depends(get_db)):
     ordenes_activas = db.query(Volante).filter(Volante.estado == "activa").count()
 
     # Pagos pendientes
-    pagos_pendientes = db.query(Pago).filter(Pago.status == "pendiente").count()
+    pagos_pendientes = db.query(Pago).filter(Pago.estado == "pendiente").count()
 
     # Ingresos del mes (sumatoria de pagos completados en el mes actual)
-    from datetime import datetime
     hoy = datetime.now()
     ingresos_mes = (
         db.query(Pago)
         .filter(
-            Pago.status == "completado",
-            Pago.fecha.year == hoy.year,
-            Pago.fecha.month == hoy.month,
+            Pago.estado == "completado",
+            extract("year", Pago.fecha) == hoy.year,
+            extract("month", Pago.fecha) == hoy.month,
         )
         .all()
     )

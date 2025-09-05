@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 
 class VendedoraCreate(BaseModel):
@@ -17,6 +17,16 @@ class CatalogoSchema(BaseModel):
     categoria: Optional[str]  # Solo el nombre
     vendedora_id: Optional[int]
     url: str
+class VendedoraBase(BaseModel):
+    nombre: str
+    email: EmailStr
+
+class VendedoraCreate(VendedoraBase):
+    password: str
+
+class VendedoraResponse(VendedoraBase):
+    id: int
+    estado: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # equivalente a orm_mode en Pydantic V1
