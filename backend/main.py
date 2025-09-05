@@ -38,9 +38,11 @@ app.include_router(pagos.router, prefix="/pagos", tags=["Pagos"])
 app.include_router(catalogos.router, prefix="/catalogos", tags=["Catalogos"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+app.include_router(volantes.router, prefix="/volantes")
 
 # Montaje de PDFs
 app.mount("/catalogos/files", StaticFiles(directory="uploads/catalogos/pdf"), name="catalogos_files")
+
 
 
 for route in app.routes:

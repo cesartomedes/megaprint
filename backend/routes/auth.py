@@ -19,16 +19,14 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     if not usuario or usuario.password != data.password:
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrecta")
 
-    if usuario.estado != "aprobada":
-        raise HTTPException(status_code=403, detail="Tu cuenta está pendiente de aprobación")
-
+    # Retornar siempre el status
     return {
         "msg": "Login exitoso",
         "id": usuario.id,
         "role": usuario.role,
-        "username": usuario.nombre  # Devuelve "nombre" como "username"
+        "username": usuario.nombre,
+        "status": usuario.estado  
     }
-
 
 
 # Registro de vendedoras
