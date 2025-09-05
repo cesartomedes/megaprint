@@ -44,4 +44,9 @@ class Volante(Base):
     __tablename__ = "volantes"
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String)
+    archivo = Column(String)  # nombre del archivo en uploads/catalogos/pdf
     estado = Column(String, default="pendiente")  # pendiente, activa, completada, etc
+    vendedora_id = Column(Integer, ForeignKey("vendedoras.id"))  # asignación
+
+    vendedora = relationship("Vendedora", backref="volantes")
+

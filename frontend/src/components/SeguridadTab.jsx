@@ -24,23 +24,23 @@ const SeguridadTab = () => {
   ];
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md space-y-6">
+    <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md space-y-6 text-gray-900 dark:text-white transition-colors duration-300">
       <h2 className="text-xl font-bold">Panel de Seguridad</h2>
 
       {/* Estado de Seguridad */}
       <div>
         <h3 className="text-lg font-semibold mb-2">Estado de Seguridad</h3>
-        <p className="text-gray-600 mb-3">Evaluación de vulnerabilidades y controles de seguridad</p>
+        <p className="text-gray-600 dark:text-gray-300 mb-3">Evaluación de vulnerabilidades y controles de seguridad</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {estadoSeguridad.map((item, idx) => (
-            <div key={idx} className="flex items-start p-4 bg-gray-50 rounded-lg shadow-sm gap-3">
+            <div key={idx} className="flex items-start p-4 rounded-lg shadow-sm gap-3 bg-gray-50 dark:bg-gray-700">
               {item.icon}
               <div>
                 <p className="font-semibold">{item.nombre}</p>
-                <p className={`text-sm ${item.nivel === "CRITICAL" ? "text-red-600" : item.nivel === "WARN" ? "text-yellow-600" : "text-green-600"}`}>
+                <p className={`text-sm ${item.nivel === "CRITICAL" ? "text-red-600 dark:text-red-400" : item.nivel === "WARN" ? "text-yellow-600 dark:text-yellow-400" : "text-green-600 dark:text-green-400"}`}>
                   {item.nivel}
                 </p>
-                <p className="text-gray-500 text-sm">{item.detalle}</p>
+                <p className="text-gray-500 dark:text-gray-300 text-sm">{item.detalle}</p>
               </div>
             </div>
           ))}
@@ -51,8 +51,8 @@ const SeguridadTab = () => {
       <div>
         <h3 className="text-lg font-semibold mb-2">Logs de Auditoría</h3>
         <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-300 text-sm text-left">
-            <thead className="bg-gray-200">
+          <table className="min-w-full border border-gray-300 dark:border-gray-600 text-sm text-left">
+            <thead className="bg-gray-200 dark:bg-gray-700">
               <tr>
                 <th className="p-2 border-b">Tipo</th>
                 <th className="p-2 border-b">Tabla</th>
@@ -61,7 +61,7 @@ const SeguridadTab = () => {
             </thead>
             <tbody>
               {logsAuditoria.map((log, idx) => (
-                <tr key={idx} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}>
+                <tr key={idx} className={`${idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"} hover:bg-gray-100 dark:hover:bg-gray-600`}>
                   <td className="p-2 border-b">{log.tipo}</td>
                   <td className="p-2 border-b">{log.tabla}</td>
                   <td className="p-2 border-b">{log.fecha}</td>
@@ -77,11 +77,11 @@ const SeguridadTab = () => {
         <h3 className="text-lg font-semibold mb-2">Medidas de Seguridad Implementadas</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {medidasSeguridad.map((item, idx) => (
-            <div key={idx} className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg shadow-sm">
+            <div key={idx} className="flex items-start gap-3 p-4 rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700">
               {item.icon}
               <div>
                 <p className="font-semibold">{item.nombre}</p>
-                <p className="text-gray-500 text-sm">{item.descripcion}</p>
+                <p className="text-gray-500 dark:text-gray-300 text-sm">{item.descripcion}</p>
               </div>
             </div>
           ))}

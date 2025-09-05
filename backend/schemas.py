@@ -30,3 +30,12 @@ class VendedoraResponse(VendedoraBase):
 
     class Config:
         from_attributes = True  # equivalente a orm_mode en Pydantic V1
+class VolanteSchema(BaseModel):
+    id: int
+    nombre: str
+    archivo: str
+    vendedora_id: Optional[int] = None  # <--- permitir nulos
+    estado: Optional[str]
+
+    class Config:
+        orm_mode = True 

@@ -16,13 +16,12 @@ export default function ConfiguracionTab() {
   };
 
   const handleSave = () => {
-    // Aquí iría la lógica para guardar configuración en el backend
     console.log("Configuración guardada:", { maintenanceMode, limits, applyToAll });
     alert("Configuración guardada correctamente!");
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow p-6 space-y-6">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 space-y-6 text-gray-900 dark:text-white transition-colors duration-300">
       <h2 className="text-xl font-bold">Información del Sistema</h2>
 
       {/* Nombre del Sistema */}
@@ -32,7 +31,7 @@ export default function ConfiguracionTab() {
           type="text"
           value="Sistema de Impresión"
           readOnly
-          className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 cursor-not-allowed"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-gray-100 dark:bg-gray-700 cursor-not-allowed text-gray-700 dark:text-gray-300"
         />
       </div>
 
@@ -45,7 +44,7 @@ export default function ConfiguracionTab() {
           onChange={(e) => setMaintenanceMode(e.target.checked)}
           className="h-5 w-5"
         />
-        <span className="text-gray-500">
+        <span className="text-gray-500 dark:text-gray-300">
           Cuando está activo, solo los administradores pueden acceder al sistema
         </span>
       </div>
@@ -53,7 +52,7 @@ export default function ConfiguracionTab() {
       {/* Límites Globales */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Límites Globales Predeterminados</h3>
-        <p className="text-gray-500 text-sm">
+        <p className="text-gray-500 dark:text-gray-300 text-sm">
           Estos límites se aplicarán a nuevos usuarios y pueden aplicarse a todos los usuarios existentes
         </p>
 
@@ -65,7 +64,7 @@ export default function ConfiguracionTab() {
               name="diario"
               value={limits.diario}
               onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded-md p-2"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -75,7 +74,7 @@ export default function ConfiguracionTab() {
               name="semanal"
               value={limits.semanal}
               onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded-md p-2"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -85,7 +84,7 @@ export default function ConfiguracionTab() {
               name="mensual"
               value={limits.mensual}
               onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded-md p-2"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -96,7 +95,7 @@ export default function ConfiguracionTab() {
               step="0.01"
               value={limits.costoExcedente}
               onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded-md p-2"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
         </div>
@@ -109,7 +108,7 @@ export default function ConfiguracionTab() {
             onChange={(e) => setApplyToAll(e.target.checked)}
             className="h-5 w-5"
           />
-          <span className="text-gray-500">
+          <span className="text-gray-500 dark:text-gray-300">
             Aplicar límites a todos los usuarios existentes
           </span>
         </div>
@@ -122,7 +121,7 @@ export default function ConfiguracionTab() {
           Guardar Límites
         </button>
 
-        <p className="text-red-500 text-sm mt-2">
+        <p className="text-red-500 dark:text-red-400 text-sm mt-2">
           Atención: Al aplicar límites globales, se actualizarán las configuraciones de límites de TODOS los usuarios existentes con los valores mostrados arriba.
         </p>
       </div>

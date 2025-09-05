@@ -42,7 +42,7 @@ export default function CategoriasTab() {
 
   const handleDelete = async (cat) => {
     const confirm = window.confirm(
-      `¿Estás seguro de eliminar la categoría "${cat.nombre}"?`,
+      `¿Estás seguro de eliminar la categoría "${cat.nombre}"?`
     );
     if (!confirm) return;
 
@@ -56,7 +56,7 @@ export default function CategoriasTab() {
   };
 
   return (
-    <div>
+    <div className="text-gray-900 dark:text-white transition-colors duration-300">
       <Toaster position="top-right" />
       <h2 className="text-xl font-bold mb-4">Categorías</h2>
 
@@ -67,7 +67,7 @@ export default function CategoriasTab() {
           placeholder="Nombre de la categoría"
           value={nuevoNombre}
           onChange={(e) => setNuevoNombre(e.target.value)}
-          className="border p-2 rounded flex-1"
+          className="border p-2 rounded flex-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-300"
         />
         <button
           onClick={handleAdd}
@@ -82,8 +82,8 @@ export default function CategoriasTab() {
       ) : categorias.length === 0 ? (
         <p>No hay categorías disponibles.</p>
       ) : (
-        <table className="min-w-full bg-white rounded-lg shadow overflow-hidden">
-          <thead className="bg-gray-100">
+        <table className="min-w-full bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <thead className="bg-gray-100 dark:bg-gray-700">
             <tr>
               <th className="py-2 px-4 text-left">ID</th>
               <th className="py-2 px-4 text-left">Nombre</th>
@@ -92,7 +92,7 @@ export default function CategoriasTab() {
           </thead>
           <tbody>
             {categorias.map((cat) => (
-              <tr key={cat.id} className="border-b">
+              <tr key={cat.id} className="border-b border-gray-200 dark:border-gray-600">
                 <td className="py-2 px-4">{cat.id}</td>
                 <td className="py-2 px-4">{cat.nombre}</td>
                 <td className="py-2 px-4 text-center">
