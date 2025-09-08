@@ -7,7 +7,7 @@ export default function AuthForm() {
   const [isLogin, setIsLogin] = useState(true);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-200 to-blue-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-900 p-4">
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md transition-all duration-500">
         {/* Logo / Icon */}
         <div className="flex flex-col items-center mb-6">
