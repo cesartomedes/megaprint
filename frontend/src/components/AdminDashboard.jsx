@@ -20,13 +20,17 @@ import {
 
 export default function AdminDashboard() {
   const { user, logout } = useContext(AuthContext);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem("darkMode");
+    return saved === "true";
+  });
 
-  // Aplicar clase dark al html
+  // Dark mode
   useEffect(() => {
     const root = document.documentElement;
     if (darkMode) root.classList.add("dark");
     else root.classList.remove("dark");
+    localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
 
   // Métricas
@@ -122,14 +126,15 @@ export default function AdminDashboard() {
 
   const handleActualizarEstado = async (id, estado) => {
     try {
-      if (estado === "aprobada")
+      if (estado === "aprobada") {
         await axios.post(
           `http://127.0.0.1:8000/admin/vendedoras/${id}/aprobar`,
         );
-      else if (estado === "rechazada")
+      } else if (estado === "rechazada") {
         await axios.post(
           `http://127.0.0.1:8000/admin/vendedoras/${id}/rechazar`,
         );
+      }
       fetchVendedoras();
     } catch (err) {
       console.error("Error al actualizar estado:", err);
@@ -143,14 +148,15 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow flex items-center justify-between px-6 py-4 transition-colors duration-300">
-        <div className="flex items-center gap-3">
-          <Printer className="w-10 h-10 text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+
+      <header className="bg-white dark:bg-gray-800 shadow flex flex-wrap items-center justify-between px-4 sm:px-6 py-4 transition-colors duration-300">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Printer className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" />
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
             MegaPrint
           </h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
           <button
             onClick={() => setDarkMode(!darkMode)}
             className="bg-gray-200 dark:bg-gray-700 p-2 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition"
@@ -161,12 +167,12 @@ export default function AdminDashboard() {
               <Moon className="text-gray-800 dark:text-white" />
             )}
           </button>
-          <span className="text-gray-700 dark:text-gray-200 font-medium">
+          <span className="text-gray-700 dark:text-gray-200 font-medium truncate max-w-[120px] sm:max-w-none">
             {user?.username || "No hay usuario"}
           </span>
           <button
             onClick={logout}
-            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
+            className="bg-red-500 text-white px-3 sm:px-4 py-2 rounded hover:bg-red-600 transition-colors whitespace-nowrap"
           >
             Salir
           </button>
@@ -218,9 +224,9 @@ export default function AdminDashboard() {
   );
 }
 
-// -------------------------------------
+// --------------------------
 // COMPONENTES INTERNOS
-// -------------------------------------
+// --------------------------
 
 function MetricCard({ title, value, color, icon: Icon }) {
   return (
@@ -247,9 +253,11 @@ function VendedorasTab({
   handleActualizarEstado,
 }) {
   const colorEstado = {
-    pendiente: "bg-yellow-200 text-yellow-800",
-    aprobada: "bg-green-200 text-green-800",
-    rechazada: "bg-red-200 text-red-800",
+    pendiente:
+      "bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-200",
+    aprobada:
+      "bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-400",
+    rechazada: "bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-400",
   };
 
   const [modal, setModal] = useState({
@@ -266,12 +274,9 @@ function VendedorasTab({
     cerrarModal();
   };
 
-  const vendedorasFiltradas = vendedoras.filter(
-    (v) => v.estado === filtroEstado,
-  );
-
   return (
     <div>
+      {/* Filtro */}
       <div className="mb-4 flex gap-2 items-center">
         <label className="text-gray-700 dark:text-white font-medium">
           Filtrar por estado:
@@ -287,112 +292,180 @@ function VendedorasTab({
         </select>
       </div>
 
-      <table className="w-full table-auto border-collapse border border-gray-300">
-        <thead>
-          <tr className="bg-gray-100 dark:bg-gray-700">
-            <th className="border p-2 text-center text-gray-900 dark:text-white">
-              Nombre
-            </th>
-            <th className="border p-2 text-center text-gray-900 dark:text-white">
-              Email
-            </th>
-            <th className="border p-2 text-center text-gray-900 dark:text-white">
-              Estado
-            </th>
-            <th className="border p-2 text-center text-gray-900 dark:text-white">
-              Acciones
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {vendedorasFiltradas.length === 0 ? (
-            <tr>
-              <td
-                colSpan="4"
-                className="text-center p-4 text-gray-900 dark:text-white"
-              >
-                No hay vendedoras con este estado.
-              </td>
+      {/* Tabla desktop */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full table-auto border-collapse border border-gray-300">
+          <thead>
+            <tr className="bg-gray-100 dark:bg-gray-700">
+              <th className="border p-2 text-center text-gray-900 dark:text-white">
+                Nombre
+              </th>
+              <th className="border p-2 text-center text-gray-900 dark:text-white">
+                Email
+              </th>
+              <th className="border p-2 text-center text-gray-900 dark:text-white">
+                Estado
+              </th>
+              <th className="border p-2 text-center text-gray-900 dark:text-white">
+                Acciones
+              </th>
             </tr>
-          ) : (
-            vendedorasFiltradas.map((v) => (
-              <tr key={v.id} className="bg-white dark:bg-gray-800">
-                <td className="border p-2 text-center text-gray-900 dark:text-white">
-                  {v.nombre}
-                </td>
-                <td className="border p-2 text-center text-gray-900 dark:text-white">
-                  {v.email}
-                </td>
+          </thead>
+          <tbody>
+            {vendedoras.length === 0 ? (
+              <tr>
                 <td
-                  className={`border p-2 font-semibold text-center ${colorEstado[v.estado]} dark:text-white`}
+                  colSpan="4"
+                  className="text-center p-4 text-gray-900 dark:text-white"
                 >
-                  {v.estado.charAt(0).toUpperCase() + v.estado.slice(1)}
-                </td>
-                <td className="border p-2 flex justify-center gap-2">
-                  {v.email !== "admin@correo.com" && (
-                    <>
-                      {v.estado === "pendiente" && (
-                        <>
-                          <button
-                            onClick={() => abrirModal(v, "aprobada")}
-                            className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
-                          >
-                            Aprobar
-                          </button>
-                          <button
-                            onClick={() => abrirModal(v, "rechazada")}
-                            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-                          >
-                            Rechazar
-                          </button>
-                        </>
-                      )}
-                      {v.estado === "aprobada" && (
-                        <button
-                          onClick={() => abrirModal(v, "rechazada")}
-                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-                        >
-                          Desactivar
-                        </button>
-                      )}
-                      {v.estado === "rechazada" && (
-                        <button
-                          onClick={() => abrirModal(v, "aprobada")}
-                          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
-                        >
-                          Activar
-                        </button>
-                      )}
-                    </>
-                  )}
+                  No hay vendedoras con este estado.
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              vendedoras.map((v) => (
+                <tr key={v.id} className="bg-white dark:bg-gray-800">
+                  <td className="border p-2 text-center text-gray-900 dark:text-white">
+                    {v.nombre}
+                  </td>
+                  <td className="border p-2 text-center text-gray-900 dark:text-white">
+                    {v.email}
+                  </td>
+                  <td
+                    className={`border p-2 font-semibold text-center ${colorEstado[v.estado]} dark:text-white`}
+                  >
+                    {v.estado.charAt(0).toUpperCase() + v.estado.slice(1)}
+                  </td>
+                  <td className="border p-2 flex justify-center gap-2 flex-wrap">
+                    {v.email !== "admin@correo.com" && (
+                      <>
+                        {v.estado === "pendiente" && (
+                          <>
+                            <button
+                              onClick={() => abrirModal(v, "aprobada")}
+                              className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-sm"
+                            >
+                              Aprobar
+                            </button>
+                            <button
+                              onClick={() => abrirModal(v, "rechazada")}
+                              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
+                            >
+                              Rechazar
+                            </button>
+                          </>
+                        )}
+                        {v.estado === "aprobada" && (
+                          <button
+                            onClick={() => abrirModal(v, "rechazada")}
+                            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
+                          >
+                            Desactivar
+                          </button>
+                        )}
+                        {v.estado === "rechazada" && (
+                          <button
+                            onClick={() => abrirModal(v, "aprobada")}
+                            className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-sm"
+                          >
+                            Activar
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
+      {/* Cards móvil */}
+      <div className="md:hidden space-y-4">
+        {vendedoras.length === 0 ? (
+          <p className="text-center p-4 text-gray-900 dark:text-white">
+            No hay vendedoras con este estado.
+          </p>
+        ) : (
+          vendedoras.map((v) => (
+            <div
+              key={v.id}
+              className="bg-white dark:bg-gray-800 border border-gray-300 rounded-lg p-4 shadow-sm"
+            >
+              <p className="text-gray-900 dark:text-white">
+                <span className="font-semibold">Nombre: </span> {v.nombre}
+              </p>
+              <p className="text-gray-900 dark:text-white break-words">
+                <span className="font-semibold">Email: </span> {v.email}
+              </p>
+              <p
+                className={`font-semibold mt-1 ${colorEstado[v.estado]} dark:text-white`}
+              >
+                Estado: {v.estado.charAt(0).toUpperCase() + v.estado.slice(1)}
+              </p>
+
+              {v.email !== "admin@correo.com" && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {v.estado === "pendiente" && (
+                    <>
+                      <button
+                        onClick={() => abrirModal(v, "aprobada")}
+                        className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-sm w-full sm:w-auto"
+                      >
+                        Aprobar
+                      </button>
+                      <button
+                        onClick={() => abrirModal(v, "rechazada")}
+                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm w-full sm:w-auto"
+                      >
+                        Rechazar
+                      </button>
+                    </>
+                  )}
+                  {v.estado === "aprobada" && (
+                    <button
+                      onClick={() => abrirModal(v, "rechazada")}
+                      className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm w-full sm:w-auto"
+                    >
+                      Desactivar
+                    </button>
+                  )}
+                  {v.estado === "rechazada" && (
+                    <button
+                      onClick={() => abrirModal(v, "aprobada")}
+                      className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-sm w-full sm:w-auto"
+                    >
+                      Activar
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Modal de confirmación */}
       {modal.visible && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 shadow-lg transition-colors duration-300">
-            <h3 className="text-lg font-bold mb-4 dark:text-white">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-sm w-full">
+            <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
               Confirmar acción
-            </h3>
-            <p className="mb-6 dark:text-gray-200">
-              ¿Seguro que quieres{" "}
-              <span className="font-semibold">{modal.accion}</span> a{" "}
-              <span className="font-semibold">{modal.vendedora.nombre}</span>?
+            </h2>
+            <p className="mb-4 text-gray-700 dark:text-gray-300">
+              ¿Seguro que quieres {modal.accion} a{" "}
+              <span className="font-semibold">{modal.vendedora?.nombre}</span>?
             </p>
-            <div className="flex justify-end gap-4">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={cerrarModal}
-                className="px-4 py-2 rounded border border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 rounded hover:bg-gray-400 dark:hover:bg-gray-500"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmarAccion}
-                className={`px-4 py-2 rounded text-white ${modal.accion === "aprobada" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"}`}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 Confirmar
               </button>
