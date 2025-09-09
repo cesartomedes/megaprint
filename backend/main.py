@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.routing import APIRoute
 
 # Routers
-from routes import auth, volantes, print_jobs, vendedoras, categorias, pagos, catalogos, dashboard, admin
+from routes import auth, volantes, vendedoras, categorias, pagos, catalogos, dashboard, admin, impresiones
 
 # Base de datos
 from database import Base, engine
@@ -31,7 +31,7 @@ app.add_middleware(
 # Routers principales
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(volantes.router, prefix="/volantes", tags=["Volantes"])
-app.include_router(print_jobs.router, prefix="/print", tags=["PrintJobs"])
+app.include_router(impresiones.router, prefix="", tags=["Impresiones"])
 app.include_router(vendedoras.router, prefix="/vendedoras", tags=["Vendedoras"])  # solo aprobadas
 app.include_router(categorias.router, prefix="/categorias", tags=["Categorias"])
 app.include_router(pagos.router, prefix="/pagos", tags=["Pagos"])
