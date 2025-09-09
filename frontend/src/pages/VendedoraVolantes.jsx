@@ -7,6 +7,7 @@ export default function VendedoraVolantes({
   setCantidadVolantes,
   setTotalHoy,
   setTotalSemana,
+  setCostoExtra, // nuevo prop opcional para enviar costo extra al dashboard si quieres
 }) {
   const { user } = useContext(AuthContext);
   const [volantes, setVolantes] = useState([]);
@@ -17,6 +18,7 @@ export default function VendedoraVolantes({
 
   const LIMITE_DIARIO = 30;
   const LIMITE_SEMANAL = 30 * 4; // ejemplo 4 días
+  const COSTO_EXTRA = 0.5;
 
   const getInicioSemana = (date = new Date()) => {
     const d = new Date(date);
@@ -78,14 +80,7 @@ export default function VendedoraVolantes({
         setConteosDiarios(initialDiarios);
         setConteosSemanales(initialSemanales);
 
-        // Totales
-        setTotalHoy(
-          Object.values(initialDiarios).reduce((a, b) => a + b, 0)
-        );
-        setTotalSemana(
-          Object.values(initialSemanales).reduce((a, b) => a + b, 0)
-        );
-
+        // Guardar limpio en localStorage
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(almacenado));
         setLoading(false);
       } catch (err) {
@@ -95,55 +90,62 @@ export default function VendedoraVolantes({
     }
 
     fetchVolantes();
-  }, [user, setCantidadVolantes, setTotalHoy, setTotalSemana]);
+  }, [user, setCantidadVolantes]);
+
+  // 🔹 Recalcular totales solo cuando cambia el state
+  useEffect(() => {
+    setTotalHoy(Object.values(conteosDiarios).reduce((a, b) => a + b, 0));
+  }, [conteosDiarios, setTotalHoy]);
+
+  useEffect(() => {
+    setTotalSemana(Object.values(conteosSemanales).reduce((a, b) => a + b, 0));
+  }, [conteosSemanales, setTotalSemana]);
 
   const handleIncrement = (volanteId) => {
     if (!user || !user.id) return;
     const LOCAL_STORAGE_KEY = `impresiones_${user.id}`;
     let almacenado = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || {};
 
-    const totalHoy = Object.values(conteosDiarios).reduce((a, b) => a + b, 0);
-    const totalSemana = Object.values(conteosSemanales).reduce(
-      (a, b) => a + b,
-      0
-    );
-
-    if (totalHoy >= LIMITE_DIARIO) {
-      alert("¡Has alcanzado el límite diario!");
-      return;
-    }
-    if (totalSemana >= LIMITE_SEMANAL) {
-      alert("¡Has alcanzado el límite semanal!");
-      return;
-    }
-
     // Incrementar diarios
-    setConteosDiarios((prev) => {
-      const newDiarios = { ...prev, [volanteId]: prev[volanteId] + 1 };
-      setTotalHoy(Object.values(newDiarios).reduce((a, b) => a + b, 0));
-      return newDiarios;
-    });
+    const newDiarios = {
+      ...conteosDiarios,
+      [volanteId]: (conteosDiarios[volanteId] || 0) + 1,
+    };
+    setConteosDiarios(newDiarios);
 
     // Incrementar semanales
-    setConteosSemanales((prev) => {
-      const newSemanales = { ...prev, [volanteId]: prev[volanteId] + 1 };
-      setTotalSemana(Object.values(newSemanales).reduce((a, b) => a + b, 0));
-      return newSemanales;
-    });
+    const newSemanales = {
+      ...conteosSemanales,
+      [volanteId]: (conteosSemanales[volanteId] || 0) + 1,
+    };
+    setConteosSemanales(newSemanales);
 
-    // Guardar en localStorage
+    // Calcular costo extra
+    const totalHoy = Object.values(newDiarios).reduce((a, b) => a + b, 0);
+    const totalSemana = Object.values(newSemanales).reduce((a, b) => a + b, 0);
+    const extraDiario = Math.max(totalHoy - LIMITE_DIARIO, 0) * COSTO_EXTRA;
+    const extraSemanal = Math.max(totalSemana - LIMITE_SEMANAL, 0) * COSTO_EXTRA;
+
+    if (setCostoExtra) setCostoExtra(extraDiario + extraSemanal);
+
+    // Guardar en localStorage SIN limitar
     if (almacenado.conteosDiarios) {
       const idx = almacenado.conteosDiarios.findIndex(
         (i) => i.volanteId === volanteId
       );
-      if (idx !== -1) almacenado.conteosDiarios[idx].cantidadImpresaHoy += 1;
+      if (idx !== -1) {
+        almacenado.conteosDiarios[idx].cantidadImpresaHoy =
+          newDiarios[volanteId];
+      }
     }
     if (almacenado.conteosSemanales) {
       const idx = almacenado.conteosSemanales.findIndex(
         (i) => i.volanteId === volanteId
       );
-      if (idx !== -1)
-        almacenado.conteosSemanales[idx].cantidadImpresaSemana += 1;
+      if (idx !== -1) {
+        almacenado.conteosSemanales[idx].cantidadImpresaSemana =
+          newSemanales[volanteId];
+      }
     }
 
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(almacenado));

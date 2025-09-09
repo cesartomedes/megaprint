@@ -1,6 +1,12 @@
 // VendedoraDashboard.jsx
 import React, { useContext, useState, useEffect } from "react";
-import { FaPrint, FaDollarSign, FaFileAlt, FaSun, FaMoon } from "react-icons/fa";
+import {
+  FaPrint,
+  FaDollarSign,
+  FaFileAlt,
+  FaSun,
+  FaMoon,
+} from "react-icons/fa";
 import VendedoraVolantes from "./VendedoraVolantes";
 import { AuthContext } from "../context/AuthContext";
 
@@ -27,10 +33,6 @@ export default function VendedoraDashboard() {
     localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
 
-  // Cada vez que cambie totalHoy, actualizamos totalSemana
-  useEffect(() => {
-    setTotalSemana(totalHoy * 2); // lógica de ejemplo: semanal = diario * 2
-  }, [totalHoy]);
 
   const excesoDiario = Math.max(totalHoy - limiteDiario, 0);
   const excesoSemanal = Math.max(totalSemana - limiteSemanal, 0);
@@ -65,7 +67,11 @@ export default function VendedoraDashboard() {
             onClick={() => setDarkMode(!darkMode)}
             className="bg-gray-200 dark:bg-gray-700 p-2 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition"
           >
-            {darkMode ? <FaSun className="text-yellow-400" /> : <FaMoon className="text-gray-800 dark:text-white" />}
+            {darkMode ? (
+              <FaSun className="text-yellow-400" />
+            ) : (
+              <FaMoon className="text-gray-800 dark:text-white" />
+            )}
           </button>
           <button
             onClick={logout}
@@ -117,66 +123,98 @@ export default function VendedoraDashboard() {
 
       {/* Límites y costo exceso */}
       <section className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex flex-col items-center justify-center transition-colors duration-300 ${excesoDiario > 0 ? "border-red-500 border-2" : ""}`}>
-          <p className="font-semibold text-lg text-gray-700 dark:text-white">Límite Diario</p>
+        <div
+          className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex flex-col items-center justify-center transition-colors duration-300 ${
+            excesoDiario > 0 ? "border-red-500 border-2" : ""
+          }`}
+        >
+          <p className="font-semibold text-lg text-gray-700 dark:text-white">
+            Límite Diario
+          </p>
           <p className="text-xl font-bold text-gray-900 dark:text-white">
-            {totalHoy} / {limiteDiario} ({((totalHoy / limiteDiario) * 100).toFixed(1)}%)
+            {totalHoy} / {limiteDiario} (
+            {((totalHoy / limiteDiario) * 100).toFixed(1)}%)
           </p>
           {totalHoy >= limiteDiario * 0.8 && totalHoy < limiteDiario && (
             <p className="text-yellow-500 dark:text-yellow-400 mt-2 font-semibold">
-              Te faltan {limiteDiario - totalHoy} impresiones para el límite diario
+              Te faltan {limiteDiario - totalHoy} impresiones para el límite
+              diario
             </p>
           )}
           {excesoDiario > 0 && (
             <p className="text-red-500 dark:text-red-400 mt-2 font-semibold">
-              ¡Has alcanzado el límite diario! Costo extra: ${excesoDiario * costoExceso}
+              ¡Has alcanzado el límite diario! Costo extra: $
+              {excesoDiario * costoExceso}
             </p>
           )}
         </div>
 
-        <div className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex flex-col items-center justify-center transition-colors duration-300 ${excesoSemanal > 0 ? "border-red-500 border-2" : ""}`}>
-          <p className="font-semibold text-lg text-gray-700 dark:text-white">Límite Semanal</p>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">
-            {totalSemana} / {limiteSemanal} ({((totalSemana / limiteSemanal) * 100).toFixed(1)}%)
+        <div
+          className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex flex-col items-center justify-center transition-colors duration-300 ${
+            excesoSemanal > 0 ? "border-red-500 border-2" : ""
+          }`}
+        >
+          <p className="font-semibold text-lg text-gray-700 dark:text-white">
+            Límite Semanal
           </p>
-          {totalSemana >= limiteSemanal * 0.8 && totalSemana < limiteSemanal && (
-            <p className="text-yellow-500 dark:text-yellow-400 mt-2 font-semibold">
-              Te faltan {limiteSemanal - totalSemana} impresiones para el límite semanal
-            </p>
-          )}
+          <p className="text-xl font-bold text-gray-900 dark:text-white">
+            {totalSemana} / {limiteSemanal} (
+            {((totalSemana / limiteSemanal) * 100).toFixed(1)}%)
+          </p>
+          {totalSemana >= limiteSemanal * 0.8 &&
+            totalSemana < limiteSemanal && (
+              <p className="text-yellow-500 dark:text-yellow-400 mt-2 font-semibold">
+                Te faltan {limiteSemanal - totalSemana} impresiones para el
+                límite semanal
+              </p>
+            )}
           {excesoSemanal > 0 && (
             <p className="text-red-500 dark:text-red-400 mt-2 font-semibold">
-              ¡Has alcanzado el límite semanal! Costo extra: ${excesoSemanal * costoExceso}
+              ¡Has alcanzado el límite semanal! Costo extra: $
+              {excesoSemanal * costoExceso}
             </p>
           )}
         </div>
 
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex flex-col items-center justify-center transition-colors duration-300">
-          <p className="font-semibold text-lg text-gray-700 dark:text-white">Costo por página extra</p>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">${costoExceso}</p>
+          <p className="font-semibold text-lg text-gray-700 dark:text-white">
+            Costo por página extra
+          </p>
+          <p className="text-xl font-bold text-gray-900 dark:text-white">
+            ${costoExceso}
+          </p>
         </div>
       </section>
 
       {/* Alertas */}
       <section className="p-6">
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 mb-6 transition-colors duration-300">
-          <h2 className="text-gray-700 dark:text-gray-200 font-semibold mb-2">Alertas</h2>
+          <h2 className="text-gray-700 dark:text-gray-200 font-semibold mb-2">
+            Alertas
+          </h2>
           <div className="flex flex-col gap-2">
             {totalHoy >= limiteDiario * 0.8 && totalHoy < limiteDiario && (
               <div className="p-2 bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-gray-100 rounded">
-                Te faltan {limiteDiario - totalHoy} impresiones para completar el límite diario
+                Te faltan {limiteDiario - totalHoy} impresiones para completar
+                el límite diario
               </div>
             )}
             {totalHoy >= limiteDiario && (
-              <div className="p-2 bg-red-500 text-white rounded">¡Has alcanzado el límite diario!</div>
-            )}
-            {totalSemana >= limiteSemanal * 0.8 && totalSemana < limiteSemanal && (
-              <div className="p-2 bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-gray-100 rounded">
-                Te faltan {limiteSemanal - totalSemana} impresiones para el límite semanal
+              <div className="p-2 bg-red-500 text-white rounded">
+                ¡Has alcanzado el límite diario!
               </div>
             )}
+            {totalSemana >= limiteSemanal * 0.8 &&
+              totalSemana < limiteSemanal && (
+                <div className="p-2 bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-gray-100 rounded">
+                  Te faltan {limiteSemanal - totalSemana} impresiones para el
+                  límite semanal
+                </div>
+              )}
             {totalSemana >= limiteSemanal && (
-              <div className="p-2 bg-red-500 text-white rounded">¡Has alcanzado el límite semanal!</div>
+              <div className="p-2 bg-red-500 text-white rounded">
+                ¡Has alcanzado el límite semanal!
+              </div>
             )}
           </div>
         </div>
@@ -192,7 +230,7 @@ export default function VendedoraDashboard() {
             darkMode={darkMode}
             setCantidadVolantes={setCantidadVolantes}
             setTotalHoy={setTotalHoy}
-            setTotalSemana={setTotalSemana} 
+            setTotalSemana={setTotalSemana}
           />
           <button
             onClick={confirmarImpresion}
@@ -209,10 +247,15 @@ export default function VendedoraDashboard() {
           <h2 className="text-gray-700 dark:text-gray-200 font-semibold mb-4">
             Historial de impresiones
           </h2>
-          {historial.length === 0 && <p>No hay impresiones confirmadas todavía.</p>}
+          {historial.length === 0 && (
+            <p>No hay impresiones confirmadas todavía.</p>
+          )}
           <ul className="space-y-2">
             {historial.map((item, index) => (
-              <li key={index} className="p-2 border rounded flex justify-between">
+              <li
+                key={index}
+                className="p-2 border rounded flex justify-between"
+              >
                 <span>{item.fecha}</span>
                 <span className="font-bold">{item.cantidad} impresiones</span>
               </li>
