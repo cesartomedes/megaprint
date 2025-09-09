@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Numeric, TIMESTAMP, ForeignKey, func
 from sqlalchemy.orm import declarative_base, relationship
 import datetime
 
@@ -50,3 +50,18 @@ class Volante(Base):
 
     vendedora = relationship("Vendedora", backref="volantes")
 
+    
+class Impresion(Base):
+    __tablename__ = "impresiones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("vendedoras.id"), nullable=False)
+    volante_id = Column(Integer, ForeignKey("volantes.id"), nullable=False)
+    fecha = Column(Date, nullable=False)
+    cantidad_impresa = Column(Integer, nullable=False)
+    exceso = Column(Integer, default=0)
+    costo_extra = Column(Numeric(10,2), default=0)
+    creado_en = Column(TIMESTAMP, server_default=func.now())
+
+    vendedora = relationship("Vendedora")
+    volante = relationship("Volante")

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from datetime import date
 from typing import Optional
 
 class VendedoraCreate(BaseModel):
@@ -29,13 +30,19 @@ class VendedoraResponse(VendedoraBase):
     estado: str
 
     class Config:
-        from_attributes = True  # equivalente a orm_mode en Pydantic V1
+        from_attributes = True  
 class VolanteSchema(BaseModel):
     id: int
     nombre: str
     archivo: str
     vendedora_id: Optional[int] = None  # <--- permitir nulos
     estado: Optional[str]
+
+class ImpresionCreate(BaseModel):
+    usuario_id: int
+    volante_id: int
+    fecha: date
+    cantidad_impresa: int
 
     class Config:
         orm_mode = True 
