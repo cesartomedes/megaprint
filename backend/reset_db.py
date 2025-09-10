@@ -5,7 +5,7 @@ db = SessionLocal()
 nuevo_volante = Volante(
     nombre="volante1.pdf",
     archivo="volante1.pdf",
-    vendedora_id=2,  # Ana
+    vendedora_id=2,  
     estado="pendiente"
 )
 db.add(nuevo_volante)

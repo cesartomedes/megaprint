@@ -4,23 +4,37 @@ import datetime
 
 Base = declarative_base()
 
+# -----------------------------
+# VENDEDORA
+# -----------------------------
 class Vendedora(Base):
     __tablename__ = "vendedoras"
+    __table_args__ = {"extend_existing": True}
+
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String)
     email = Column(String, unique=True)
-    password = Column(String)  # ⚠️ en producción, cifrar siempre
+    password = Column(String)  # ⚠️ cifrar en producción
     estado = Column(String, default="pendiente")
     role = Column(String, default="vendedora")  # roles: "vendedora" o "admin"
 
+# -----------------------------
+# CATEGORIA
+# -----------------------------
 class Categoria(Base):
     __tablename__ = "categorias"
+    __table_args__ = {"extend_existing": True}
+
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, unique=True, nullable=False)
 
-
+# -----------------------------
+# CATALOGO
+# -----------------------------
 class Catalogo(Base):
     __tablename__ = "catalogos"
+    __table_args__ = {"extend_existing": True}
+
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String)
     categoria_id = Column(Integer, ForeignKey("categorias.id"))
@@ -30,18 +44,13 @@ class Catalogo(Base):
     categoria = relationship("Categoria")
     vendedora = relationship("Vendedora")
 
-
-
-class Pago(Base):
-    __tablename__ = "pagos"
-    id = Column(Integer, primary_key=True, index=True)
-    vendedora_id = Column(Integer, ForeignKey("vendedoras.id"))
-    monto = Column(Float)
-    estado = Column(String, default="pendiente")
-    fecha = Column(DateTime, default=datetime.datetime.utcnow)
-
+# -----------------------------
+# VOLANTE
+# -----------------------------
 class Volante(Base):
     __tablename__ = "volantes"
+    __table_args__ = {"extend_existing": True}
+
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String)
     archivo = Column(String)  # nombre del archivo en uploads/catalogos/pdf
@@ -50,9 +59,12 @@ class Volante(Base):
 
     vendedora = relationship("Vendedora", backref="volantes")
 
-    
+# -----------------------------
+# IMPRESION
+# -----------------------------
 class Impresion(Base):
     __tablename__ = "impresiones"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey("vendedoras.id"), nullable=False)
@@ -65,3 +77,39 @@ class Impresion(Base):
 
     vendedora = relationship("Vendedora")
     volante = relationship("Volante")
+
+# -----------------------------
+# PAGO
+# -----------------------------
+class Pago(Base):
+    __tablename__ = "pagos"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    vendedora_id = Column(Integer, ForeignKey("vendedoras.id"))
+    monto = Column(Float)
+    metodo = Column(String, nullable=True)       # ejemplo: PagoMovil
+    referencia = Column(String, nullable=True)   # referencia del pago
+    capture_url = Column(String, nullable=True)  # URL del capture subido
+    estado = Column(String, default="pendiente")
+    fecha = Column(DateTime, default=datetime.datetime.utcnow)
+
+    vendedora = relationship("Vendedora", backref="pagos")
+
+# -----------------------------
+# DEUDA
+# -----------------------------
+class Deuda(Base):
+    __tablename__ = "deudas"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    vendedora_id = Column(Integer, ForeignKey("vendedoras.id"))
+    monto = Column(Float, nullable=False)
+    metodo = Column(String, nullable=True)
+    referencia = Column(String, nullable=True)
+    capture_url = Column(String, nullable=True)
+    estado = Column(String, default="pendiente")
+    fecha = Column(DateTime, default=datetime.datetime.utcnow)
+
+    vendedora = relationship("Vendedora", backref="deudas")
