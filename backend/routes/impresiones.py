@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from datetime import date, timedelta
 from database import get_db 
-from models import Impresion
+from models import Impresion, Volante, Vendedora
 from schemas import ImpresionCreate
 from collections import defaultdict
 
@@ -89,21 +89,116 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
             "cantidad_impresa": nueva_impresion.cantidad_impresa,
         }
     }
+@router.get("/impresiones/")
+def obtener_todas_impresiones(db: Session = Depends(get_db)):
+    vendedoras = db.query(Vendedora).all()
+    resultado = []
+
+    for v in vendedoras:
+        hoy = date.today()
+        inicio_semana = hoy - timedelta(days=hoy.weekday())
+
+        # Impresiones diarias de la vendedora ordenadas por fecha/hora descendente
+        impresiones_hoy = (
+            db.query(Impresion)
+            .filter(
+                Impresion.usuario_id == v.id,
+                func.date(Impresion.creado_en) == hoy
+            )
+            .order_by(Impresion.creado_en.desc())
+            .all()
+        )
+
+        # Impresiones semanales de la vendedora ordenadas por fecha/hora descendente
+        impresiones_semana = (
+            db.query(Impresion)
+            .filter(
+                Impresion.usuario_id == v.id,
+                func.date(Impresion.creado_en) >= inicio_semana
+            )
+            .order_by(Impresion.creado_en.desc())
+            .all()
+        )
+
+        # IDs de volantes involucrados
+        ids_volantes = set([imp.volante_id for imp in impresiones_hoy] +
+                           [imp.volante_id for imp in impresiones_semana])
+        volantes = db.query(Volante).filter(Volante.id.in_(ids_volantes)).all()
+        volantes_info = {vol.id: {"id": vol.id, "nombre": vol.nombre, "archivo": vol.archivo} for vol in volantes}
+
+        # Construir respuesta
+        resultado.append({
+            "usuario": {"id": v.id, "nombre": v.nombre},
+            "conteosDiarios": [
+                {
+                    "volante": volantes_info.get(imp.volante_id, {"id": imp.volante_id, "nombre": "Desconocido"}),
+                    "total": imp.cantidad_impresa,
+                    "fecha_hora": imp.creado_en
+                }
+                for imp in impresiones_hoy
+            ],
+            "conteosSemanales": [
+                {
+                    "volante": volantes_info.get(imp.volante_id, {"id": imp.volante_id, "nombre": "Desconocido"}),
+                    "total": imp.cantidad_impresa,
+                    "fecha_hora": imp.creado_en
+                }
+                for imp in impresiones_semana
+            ],
+        })
+
+    return resultado
+
+
+
 @router.get("/impresiones/{usuario_id}")
 def obtener_conteos(usuario_id: int, db: Session = Depends(get_db)):
-    impresiones = db.query(Impresion).filter(Impresion.usuario_id == usuario_id).all()
+    hoy = date.today()
+    inicio_semana = hoy - timedelta(days=hoy.weekday())  # lunes actual
 
-    if not impresiones:
-        return {"conteosDiarios": {}, "conteosSemanales": {}}
+    # --- Conteo diario con join a Volante ---
+    impresiones_hoy = (
+        db.query(Impresion.volante_id, func.sum(Impresion.cantidad_impresa))
+        .filter(Impresion.usuario_id == usuario_id, Impresion.fecha == hoy)
+        .group_by(Impresion.volante_id)
+        .all()
+    )
 
-    conteos_diarios = defaultdict(int)
-    conteos_semanales = defaultdict(int)
+    # --- Conteo semanal con join a Volante ---
+    impresiones_semana = (
+        db.query(Impresion.volante_id, func.sum(Impresion.cantidad_impresa))
+        .filter(Impresion.usuario_id == usuario_id, Impresion.fecha >= inicio_semana)
+        .group_by(Impresion.volante_id)
+        .all()
+    )
 
-    for imp in impresiones:
-        conteos_diarios[imp.volante_id] += imp.cantidad_impresa
-        conteos_semanales[imp.volante_id] += imp.cantidad_impresa
+    # --- Obtener info de volantes ---
+    ids_volantes = set([v_id for v_id, _ in impresiones_hoy] + [v_id for v_id, _ in impresiones_semana])
+    volantes = (
+        db.query(Volante)
+        .filter(Volante.id.in_(ids_volantes))
+        .all()
+    )
+    volantes_info = {v.id: {"id": v.id, "nombre": v.nombre, "archivo": v.archivo} for v in volantes}
+
+    # --- Armar respuesta ---
+    conteos_diarios = []
+    for volante_id, total in impresiones_hoy:
+        conteos_diarios.append({
+            "volante": volantes_info.get(volante_id, {"id": volante_id, "nombre": "Desconocido"}),
+            "total": total
+        })
+
+    conteos_semanales = []
+    for volante_id, total in impresiones_semana:
+        conteos_semanales.append({
+            "volante": volantes_info.get(volante_id, {"id": volante_id, "nombre": "Desconocido"}),
+            "total": total
+        })
 
     return {
         "conteosDiarios": conteos_diarios,
         "conteosSemanales": conteos_semanales
     }
+
+

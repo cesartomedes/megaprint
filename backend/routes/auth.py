@@ -14,12 +14,12 @@ class LoginRequest(BaseModel):
 
 @router.post("/login")
 def login(data: LoginRequest, db: Session = Depends(get_db)):
-    # Buscar usuario por nombre
     usuario = db.query(Vendedora).filter(Vendedora.nombre == data.username).first()
-    if not usuario or usuario.password != data.password:
-        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrecta")
+    if not usuario:
+        raise HTTPException(status_code=404, detail=f"Usuario {data.username} no encontrado")
+    if usuario.password != data.password:
+        raise HTTPException(status_code=401, detail="Contraseña incorrecta")
 
-    # Retornar siempre el status
     return {
         "msg": "Login exitoso",
         "id": usuario.id,

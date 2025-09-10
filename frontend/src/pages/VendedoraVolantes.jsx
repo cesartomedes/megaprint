@@ -15,7 +15,7 @@ export default function VendedoraVolantes({
   const [loading, setLoading] = useState(true);
   const [conteosDiarios, setConteosDiarios] = useState({});
   const [conteosSemanales, setConteosSemanales] = useState({});
-  const [modalVolante, setModalVolante] = useState(null);
+  const [modalVolante, setModalVolante] = useState(null); // ✅ corregido
   const [showConfirm, setShowConfirm] = useState(false);
   const [haySeleccion, setHaySeleccion] = useState(false);
   const [animarBadge, setAnimarBadge] = useState({});
@@ -121,12 +121,8 @@ export default function VendedoraVolantes({
     }
   };
 
-  const handleIncrement = async (volanteId, cantidad = 1) => {
-    if (!user || !user.id) return;
-
-    const impresionRegistrada = await registrarImpresion(volanteId, cantidad);
-    if (!impresionRegistrada) return;
-
+  // 🔹 Ajuste: incrementa solo en el badge, no en DB
+  const handleIncrementBadge = (volanteId, cantidad = 1) => {
     setConteosDiarios((prev) => ({ ...prev, [volanteId]: (prev[volanteId] || 0) + cantidad }));
     setConteosSemanales((prev) => ({ ...prev, [volanteId]: (prev[volanteId] || 0) + cantidad }));
     setHaySeleccion(true);
@@ -210,14 +206,14 @@ export default function VendedoraVolantes({
                   src={`http://localhost:8000${volante.url}`}
                   className="w-full h-80 sm:h-96 md:h-96 object-cover"
                   title={volante.nombre}
-                  onClick={() => handleIncrement(volante.id)}
+                  onClick={() => handleIncrementBadge(volante.id)} // solo badge, no DB
                 />
               ) : (
                 <img
                   src={`http://localhost:8000${volante.url}`}
                   alt={volante.nombre}
                   className="w-full h-80 sm:h-96 md:h-96 object-cover"
-                  onClick={() => handleIncrement(volante.id)}
+                  onClick={() => handleIncrementBadge(volante.id)} // solo badge, no DB
                 />
               )}
 
@@ -230,7 +226,7 @@ export default function VendedoraVolantes({
                 {volante.nombre}
                 <div className="mt-2">
                   <button
-                    onClick={() => setModalVolante(volante)}
+                    onClick={() => setModalVolante(volante)} // ✅ abre modal
                     className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
                   >
                     Toque para ampliar
@@ -242,29 +238,39 @@ export default function VendedoraVolantes({
         })}
       </div>
 
-      {/* Modal Volante */}
+      {/* Modal Ampliar Volante */}
       {modalVolante && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black/70 z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg relative max-w-4xl w-full">
-            <button
-              onClick={() => setModalVolante(null)}
-              className="absolute top-2 right-2 text-white bg-red-500 rounded-full px-3 py-1 hover:bg-red-600"
-            >
-              X
-            </button>
-            {modalVolante.nombre.toLowerCase().endsWith(".pdf") ? (
-              <iframe
-                src={`http://localhost:8000${modalVolante.url}`}
-                className="w-full h-[80vh]"
-                title={modalVolante.nombre}
-              />
-            ) : (
-              <img
-                src={`http://localhost:8000${modalVolante.url}`}
-                alt={modalVolante.nombre}
-                className="w-full h-[80vh] object-contain"
-              />
-            )}
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div
+            className={`relative w-full max-w-3xl rounded-xl shadow-xl overflow-hidden ${
+              darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
+            }`}
+          >
+            <div className="flex justify-between items-center p-4 border-b border-gray-300 dark:border-gray-700">
+              <h2 className="text-xl font-bold">{modalVolante.nombre}</h2>
+              <button
+                onClick={() => setModalVolante(null)}
+                className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="p-4">
+              {modalVolante.nombre.toLowerCase().endsWith(".pdf") ? (
+                <iframe
+                  src={`http://localhost:8000${modalVolante.url}`}
+                  className="w-full h-[70vh]"
+                  title={modalVolante.nombre}
+                />
+              ) : (
+                <img
+                  src={`http://localhost:8000${modalVolante.url}`}
+                  alt={modalVolante.nombre}
+                  className="w-full h-[70vh] object-contain"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -278,8 +284,6 @@ export default function VendedoraVolantes({
             }`}
           >
             <h2 className="text-xl font-bold mb-4">Confirmar Orden de Impresión</h2>
-            <p className="font-semibold mb-2">Archivos Seleccionados</p>
-            <p className="text-sm mb-4">(Resumen global)</p>
             <div className="mb-3">
               <p>
                 Uso Diario: {totalHoy} / {LIMITE_DIARIO}
@@ -306,11 +310,16 @@ export default function VendedoraVolantes({
               </button>
               <button
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                onClick={() => {
+                onClick={async () => {
+                  for (const volante of volantes) {
+                    const cantidad = conteosDiarios[volante.id] || 0;
+                    if (cantidad > 0) {
+                      await registrarImpresion(volante.id, cantidad);
+                    }
+                  }
                   alert("✅ Impresión confirmada");
                   setShowConfirm(false);
 
-                  // 🔹 Reiniciar conteos locales
                   const resetDiarios = {};
                   const resetSemanales = {};
                   volantes.forEach((v) => {
@@ -319,8 +328,8 @@ export default function VendedoraVolantes({
                   });
                   setConteosDiarios(resetDiarios);
                   setConteosSemanales(resetSemanales);
-                  if (setCostoExtra) setCostoExtra(0);
                   setHaySeleccion(false);
+                  if (setCostoExtra) setCostoExtra(0);
                 }}
               >
                 Confirmar Impresión

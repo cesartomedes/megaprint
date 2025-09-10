@@ -7,6 +7,8 @@ import ImpresionesTab from "./impresiones/ImpresionesTab";
 import SeguridadTab from "./SeguridadTab";
 import ConfiguracionTab from "./ConfiguracionTab";
 import PagosTab from "./pagos/PagosTab";
+import AdminImpresiones from "./AdminImpresiones";
+
 
 import {
   Printer,
@@ -65,6 +67,8 @@ export default function AdminDashboard() {
     { id: "impresion", label: "Impresión (CUPS)" },
     { id: "seguridad", label: "Seguridad" },
     { id: "configuracion", label: "Configuración" },
+    { id: "admin-impresiones", label: "Historial Impresiones" }
+
   ];
 
   const [vendedoras, setVendedoras] = useState([]);
@@ -216,9 +220,11 @@ export default function AdminDashboard() {
         {activeTab === "catalogo" && <CatalogoTab />}
         {activeTab === "categorias" && <CategoriasTab />}
         {activeTab === "pagos" && <PagosTab />}
-        {activeTab === "impresion" && <ImpresionesTab />}
         {activeTab === "seguridad" && <SeguridadTab />}
         {activeTab === "configuracion" && <ConfiguracionTab />}
+        {activeTab === "impresion" && <ImpresionesTab />}
+        {activeTab === "admin-impresiones" && <AdminImpresiones />}
+       
       </div>
     </div>
   );

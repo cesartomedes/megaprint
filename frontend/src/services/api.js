@@ -12,4 +12,4 @@ export async function fetchPagos() {
   return response.json();
 }
 
-// ... otros endpoints
+
