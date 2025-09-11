@@ -81,9 +81,9 @@ export default function AdminDashboard() {
     if (activeTab === "vendedoras") fetchVendedoras();
   }, [activeTab]);
 
-  const fetchMetrics = async () => {
+ const fetchMetrics = async () => {
     try {
-      const res = await axios.get("http://127.0.0.1:8000/dashboard/");
+      const res = await axios.get("http://127.0.0.1:8000/dashboard");
       const data = res.data;
       setMetrics([
         {

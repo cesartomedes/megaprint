@@ -1,45 +1,53 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import extract
-from database import get_db
-from models import Vendedora, Volante, Pago
+from sqlalchemy import extract, func
 from datetime import datetime
+
+from database import get_db
+from models import Vendedora, Pago, Impresion
 
 router = APIRouter()
 
-@router.get("/", tags=["Dashboard"])
-def get_dashboard(db: Session = Depends(get_db)):
-    # Vendedoras aprobadas, pendientes, rechazadas
-    aprobadas = db.query(Vendedora).filter(Vendedora.estado == "aprobada").count()
-    pendientes = db.query(Vendedora).filter(Vendedora.estado == "pendiente").count()
-    rechazadas = db.query(Vendedora).filter(Vendedora.estado == "rechazada").count()
+@router.get("/dashboard")
+def get_dashboard_stats(db: Session = Depends(get_db)):
+    """Devuelve métricas del dashboard de forma segura"""
 
-    # Órdenes activas
-    ordenes_activas = db.query(Volante).filter(Volante.estado == "activa").count()
+    now = datetime.now()
+
+    # Vendedoras por estado
+    aprobadas = db.query(func.count(Vendedora.id)).filter(Vendedora.estado == "aprobada").scalar() or 0
+    pendientes = db.query(func.count(Vendedora.id)).filter(Vendedora.estado == "pendiente").scalar() or 0
+    rechazadas = db.query(func.count(Vendedora.id)).filter(Vendedora.estado == "rechazada").scalar() or 0
+
+    # Órdenes activas (mes actual)
+    ordenes_activas = (
+        db.query(func.count(Impresion.id))
+        .filter(Impresion.fecha.isnot(None))
+        .filter(extract("month", Impresion.fecha) == now.month)
+        .filter(extract("year", Impresion.fecha) == now.year)
+        .scalar() or 0
+    )
 
     # Pagos pendientes
-    pagos_pendientes = db.query(Pago).filter(Pago.estado == "pendiente").count()
+    pagos_pendientes = db.query(func.count(Pago.id)).filter(Pago.estado == "pendiente").scalar() or 0
 
-    # Ingresos del mes (sumatoria de pagos completados en el mes actual)
-    hoy = datetime.now()
-    ingresos_mes = (
-        db.query(Pago)
-        .filter(
-            Pago.estado == "completado",
-            extract("year", Pago.fecha) == hoy.year,
-            extract("month", Pago.fecha) == hoy.month,
-        )
-        .all()
+    # Ingresos del mes actual
+    ingresos_mes_total = (
+        db.query(func.coalesce(func.sum(Pago.monto), 0))
+        .filter(Pago.estado == "completado")
+        .filter(Pago.fecha.isnot(None))
+        .filter(extract("month", Pago.fecha) == now.month)
+        .filter(extract("year", Pago.fecha) == now.year)
+        .scalar() or 0
     )
-    total_ingresos = sum(p.monto for p in ingresos_mes)
 
     return {
         "vendedoras": {
             "aprobadas": aprobadas,
             "pendientes": pendientes,
-            "rechazadas": rechazadas,
+            "rechazadas": rechazadas
         },
         "ordenes_activas": ordenes_activas,
         "pagos_pendientes": pagos_pendientes,
-        "ingresos_mes": total_ingresos,
+        "ingresos_mes": float(ingresos_mes_total)
     }

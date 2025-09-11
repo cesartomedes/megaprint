@@ -101,15 +101,19 @@ class Pago(Base):
 # -----------------------------
 class Deuda(Base):
     __tablename__ = "deudas"
-    __table_args__ = {"extend_existing": True}
-
     id = Column(Integer, primary_key=True, index=True)
     vendedora_id = Column(Integer, ForeignKey("vendedoras.id"))
+    volante_id = Column(Integer, ForeignKey("volantes.id"), nullable=True)  # nuevo
+    impresion_id = Column(Integer, ForeignKey("impresiones.id"), nullable=True)  # nuevo
     monto = Column(Float, nullable=False)
+    cantidad_excedida = Column(Integer, default=0)  # nuevo
     metodo = Column(String, nullable=True)
     referencia = Column(String, nullable=True)
     capture_url = Column(String, nullable=True)
     estado = Column(String, default="pendiente")
     fecha = Column(DateTime, default=datetime.datetime.utcnow)
+    tipo = Column(String, default="diaria")  # 'diaria' o 'semanal'
 
     vendedora = relationship("Vendedora", backref="deudas")
+    volante = relationship("Volante")
+    impresion = relationship("Impresion", backref="deudas")

@@ -1,27 +1,84 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text
-from datetime import date, timedelta
-from database import get_db 
-from models import Impresion, Volante, Vendedora
+from sqlalchemy import func
+from datetime import date, timedelta, datetime
+from database import get_db
+from models import Impresion, Volante, Vendedora, Deuda
 from schemas import ImpresionCreate
-from collections import defaultdict
-
 
 router = APIRouter()
 
-# Límite diario y semanal definidos globalmente
+# ── Configuración global
 LIMITE_DIARIO = 30
 LIMITE_SEMANAL = 150
 COSTO_EXTRA = 0.5
 
+# ── Función para crear o actualizar deuda
+# ── Función para crear o actualizar deuda
+def crear_o_actualizar_deuda(
+    usuario_id: int,
+    monto_extra: float,
+    fecha: date,
+    tipo: str,
+    db: Session,
+    volante_id: int = None,
+    impresion_id: int = None,
+    cantidad_excedida: int = 0
+):
+    if monto_extra <= 0:
+        return None
 
+    if tipo == "diaria":
+        deuda = db.query(Deuda).filter(
+            Deuda.vendedora_id == usuario_id,
+            func.date(Deuda.fecha) == fecha,
+            Deuda.tipo == "diaria",
+            Deuda.estado == "pendiente",
+            Deuda.volante_id == volante_id
+        ).first()
+    else:
+        inicio_semana = fecha - timedelta(days=fecha.weekday())
+        deuda = db.query(Deuda).filter(
+            Deuda.vendedora_id == usuario_id,
+            Deuda.fecha >= inicio_semana,
+            Deuda.tipo == "semanal",
+            Deuda.estado == "pendiente",
+            Deuda.volante_id == volante_id
+        ).first()
+
+    if deuda:
+        deuda.monto += monto_extra
+        deuda.cantidad_excedida = cantidad_excedida
+        deuda.impresion_id = impresion_id
+        deuda.referencia = f"{cantidad_excedida} excedió el límite"
+        deuda.fecha = fecha
+    else:
+        deuda = Deuda(
+            vendedora_id=usuario_id,
+            volante_id=volante_id,
+            impresion_id=impresion_id,
+            monto=monto_extra,
+            cantidad_excedida=cantidad_excedida,
+            referencia=f"{cantidad_excedida} excedió el límite",
+            estado="pendiente",
+            fecha=fecha,
+            tipo=tipo
+        )
+        db.add(deuda)
+
+    db.commit()
+    db.refresh(deuda)
+    return deuda
+
+
+
+# ── Crear impresión
 @router.post("/impresiones/")
 def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
     hoy = impresion.fecha
     inicio_semana = hoy - timedelta(days=hoy.weekday())  # lunes actual
 
-    # Total impreso hoy
+    # ── Calcular total impreso hoy y esta semana
     total_hoy = (
         db.query(func.sum(Impresion.cantidad_impresa))
         .filter(
@@ -32,7 +89,6 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
         .scalar() or 0
     )
 
-    # Total impreso en la semana
     total_semana = (
         db.query(func.sum(Impresion.cantidad_impresa))
         .filter(
@@ -46,16 +102,13 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
     nuevo_total_hoy = total_hoy + impresion.cantidad_impresa
     nuevo_total_semana = total_semana + impresion.cantidad_impresa
 
-    # Exceso diario
+    # ── Calcular excesos
     exceso_diario = max(nuevo_total_hoy - LIMITE_DIARIO, 0)
-
-    # Exceso semanal
     exceso_semanal = max(nuevo_total_semana - LIMITE_SEMANAL, 0)
-
-    # Tomamos el mayor exceso para el cálculo de costo
     exceso_total = max(exceso_diario, exceso_semanal)
     costo_extra = exceso_total * COSTO_EXTRA if exceso_total > 0 else 0
 
+    # ── Guardar la impresión
     nueva_impresion = Impresion(
         usuario_id=impresion.usuario_id,
         volante_id=impresion.volante_id,
@@ -65,15 +118,39 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
         costo_extra=costo_extra
     )
 
+ # ── Guardar la impresión
     db.add(nueva_impresion)
     db.commit()
     db.refresh(nueva_impresion)
 
+    # ── Crear o actualizar deudas acumulativas vinculadas a la impresión
+    if exceso_diario > 0:
+        crear_o_actualizar_deuda(
+            usuario_id=impresion.usuario_id,
+            monto_extra=exceso_diario * COSTO_EXTRA,
+            fecha=hoy,
+            tipo="diaria",
+            db=db,
+            volante_id=impresion.volante_id,
+            impresion_id=nueva_impresion.id,
+            cantidad_excedida=exceso_diario
+        )
+
+    if exceso_semanal > 0:
+        crear_o_actualizar_deuda(
+            usuario_id=impresion.usuario_id,
+            monto_extra=exceso_semanal * COSTO_EXTRA,
+            fecha=hoy,
+            tipo="semanal",
+            db=db,
+            volante_id=impresion.volante_id,
+            impresion_id=nueva_impresion.id,
+            cantidad_excedida=exceso_semanal
+        )
+
+
     return {
-        "mensaje": (
-            "Impresión registrada con exceso"
-            if exceso_total > 0 else "Impresión registrada"
-        ),
+        "mensaje": "Impresión registrada con exceso" if exceso_total > 0 else "Impresión registrada",
         "limite_diario": LIMITE_DIARIO,
         "limite_semanal": LIMITE_SEMANAL,
         "total_hoy": nuevo_total_hoy,
@@ -89,6 +166,8 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
             "cantidad_impresa": nueva_impresion.cantidad_impresa,
         }
     }
+
+# ── Obtener todas las impresiones por vendedora
 @router.get("/impresiones/")
 def obtener_todas_impresiones(db: Session = Depends(get_db)):
     vendedoras = db.query(Vendedora).all()
@@ -98,7 +177,6 @@ def obtener_todas_impresiones(db: Session = Depends(get_db)):
         hoy = date.today()
         inicio_semana = hoy - timedelta(days=hoy.weekday())
 
-        # Impresiones diarias de la vendedora ordenadas por fecha/hora descendente
         impresiones_hoy = (
             db.query(Impresion)
             .filter(
@@ -109,7 +187,6 @@ def obtener_todas_impresiones(db: Session = Depends(get_db)):
             .all()
         )
 
-        # Impresiones semanales de la vendedora ordenadas por fecha/hora descendente
         impresiones_semana = (
             db.query(Impresion)
             .filter(
@@ -120,13 +197,11 @@ def obtener_todas_impresiones(db: Session = Depends(get_db)):
             .all()
         )
 
-        # IDs de volantes involucrados
         ids_volantes = set([imp.volante_id for imp in impresiones_hoy] +
                            [imp.volante_id for imp in impresiones_semana])
         volantes = db.query(Volante).filter(Volante.id.in_(ids_volantes)).all()
         volantes_info = {vol.id: {"id": vol.id, "nombre": vol.nombre, "archivo": vol.archivo} for vol in volantes}
 
-        # Construir respuesta
         resultado.append({
             "usuario": {"id": v.id, "nombre": v.nombre},
             "conteosDiarios": [
@@ -150,13 +225,12 @@ def obtener_todas_impresiones(db: Session = Depends(get_db)):
     return resultado
 
 
-
+# ── Obtener conteos diarios y semanales por usuario
 @router.get("/impresiones/{usuario_id}")
 def obtener_conteos(usuario_id: int, db: Session = Depends(get_db)):
     hoy = date.today()
-    inicio_semana = hoy - timedelta(days=hoy.weekday())  # lunes actual
+    inicio_semana = hoy - timedelta(days=hoy.weekday())
 
-    # --- Conteo diario con join a Volante ---
     impresiones_hoy = (
         db.query(Impresion.volante_id, func.sum(Impresion.cantidad_impresa))
         .filter(Impresion.usuario_id == usuario_id, Impresion.fecha == hoy)
@@ -164,7 +238,6 @@ def obtener_conteos(usuario_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    # --- Conteo semanal con join a Volante ---
     impresiones_semana = (
         db.query(Impresion.volante_id, func.sum(Impresion.cantidad_impresa))
         .filter(Impresion.usuario_id == usuario_id, Impresion.fecha >= inicio_semana)
@@ -172,33 +245,14 @@ def obtener_conteos(usuario_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    # --- Obtener info de volantes ---
     ids_volantes = set([v_id for v_id, _ in impresiones_hoy] + [v_id for v_id, _ in impresiones_semana])
-    volantes = (
-        db.query(Volante)
-        .filter(Volante.id.in_(ids_volantes))
-        .all()
-    )
+    volantes = db.query(Volante).filter(Volante.id.in_(ids_volantes)).all()
     volantes_info = {v.id: {"id": v.id, "nombre": v.nombre, "archivo": v.archivo} for v in volantes}
 
-    # --- Armar respuesta ---
-    conteos_diarios = []
-    for volante_id, total in impresiones_hoy:
-        conteos_diarios.append({
-            "volante": volantes_info.get(volante_id, {"id": volante_id, "nombre": "Desconocido"}),
-            "total": total
-        })
-
-    conteos_semanales = []
-    for volante_id, total in impresiones_semana:
-        conteos_semanales.append({
-            "volante": volantes_info.get(volante_id, {"id": volante_id, "nombre": "Desconocido"}),
-            "total": total
-        })
+    conteos_diarios = [{"volante": volantes_info.get(volante_id, {"id": volante_id, "nombre": "Desconocido"}), "total": total} for volante_id, total in impresiones_hoy]
+    conteos_semanales = [{"volante": volantes_info.get(volante_id, {"id": volante_id, "nombre": "Desconocido"}), "total": total} for volante_id, total in impresiones_semana]
 
     return {
         "conteosDiarios": conteos_diarios,
         "conteosSemanales": conteos_semanales
     }
-
-

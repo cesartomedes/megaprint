@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.routing import APIRoute
 
 # Routers
-from routes import auth, volantes, vendedoras, categorias, pagos, catalogos, dashboard, admin, impresiones
+from routes import auth, volantes, vendedoras, categorias, pagos, catalogos, dashboard, admin, impresiones, deudas
 
 # Base de datos
 from database import Base, engine
@@ -22,10 +22,10 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+     allow_origins=["*"],  # para test rápido
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"],       # headers permitidos # Headers permitidos
 )
 
 # Routers principales
@@ -36,7 +36,10 @@ app.include_router(vendedoras.router, prefix="/vendedoras", tags=["Vendedoras"])
 app.include_router(categorias.router, prefix="/categorias", tags=["Categorias"])
 app.include_router(pagos.router, prefix="/pagos", tags=["Pagos"])
 app.include_router(catalogos.router, prefix="/catalogos", tags=["Catalogos"])
-app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+app.include_router(deudas.router)
+
+app.include_router(dashboard.router)
+
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(volantes.router, prefix="/volantes")
 
