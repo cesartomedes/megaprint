@@ -1,65 +1,56 @@
 # routes/deudas.py
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from database import get_db
-from models import Deuda
-from schemas import DeudaCreate, Deuda as DeudaSchema
-from typing import List
-import shutil
-import os
-from datetime import datetime
+from models import Deuda, Vendedora
 
-router = APIRouter(prefix="/deudas", tags=["Deudas"])
+router = APIRouter()
 
-# ── Obtener todas las deudas
-@router.get("/", response_model=List[DeudaSchema])
-def get_all_deudas(db: Session = Depends(get_db)):
-    return db.query(Deuda).order_by(Deuda.fecha.desc()).all()
+@router.get("/deudas")
+def obtener_deudas(db: Session = Depends(get_db)):
+    # Traer vendedoras con deudas pendientes, sumando monto
+    vendedoras = db.query(
+        Deuda.vendedora_id,
+        Vendedora.nombre,
+        func.count(Deuda.id).label("cantidad_deudas"),
+        func.sum(Deuda.monto).label("total_deuda")
+    ).join(Vendedora, Vendedora.id == Deuda.vendedora_id) \
+     .filter(Deuda.estado == "pendiente") \
+     .group_by(Deuda.vendedora_id, Vendedora.nombre) \
+     .all()
 
-# ── Obtener deudas de una vendedora
-@router.get("/{vendedora_id}", response_model=List[DeudaSchema])
-def get_deudas_vendedora(vendedora_id: int, db: Session = Depends(get_db)):
-    return (
-        db.query(Deuda)
-        .filter(Deuda.vendedora_id == vendedora_id)
-        .order_by(Deuda.fecha.desc())
-        .all()
-    )
+    resultado = []
 
-# ── Crear nueva deuda
-@router.post("/", response_model=DeudaSchema)
-def create_deuda(deuda: DeudaCreate, db: Session = Depends(get_db)):
-    nueva_deuda = Deuda(**deuda.dict())
-    db.add(nueva_deuda)
-    db.commit()
-    db.refresh(nueva_deuda)
-    return nueva_deuda
+    for v in vendedoras:
+        # Detalle de deudas
+        deudas_detalle = db.query(Deuda).filter(
+            Deuda.vendedora_id == v.vendedora_id,
+            Deuda.estado == "pendiente"
+        ).all()
 
-# ── Subir capture opcional
-@router.post("/upload_capture/{deuda_id}")
-def upload_capture(deuda_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    deuda = db.query(Deuda).filter(Deuda.id == deuda_id).first()
-    if not deuda:
-        raise HTTPException(status_code=404, detail="Deuda no encontrada")
-    
-    filename = f"uploads/captures/{datetime.utcnow().timestamp()}_{file.filename}"
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    with open(filename, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-    
-    deuda.capture_url = f"/{filename}"
-    db.commit()
-    db.refresh(deuda)
-    return {"message": "Capture subido", "capture_url": deuda.capture_url}
+        deudas_list = []
+        for d in deudas_detalle:
+            deudas_list.append({
+                "id": d.id,
+                "monto": d.monto,
+                "cantidad_excedida": d.cantidad_excedida,
+                "metodo": d.metodo,
+                "referencia": d.referencia,
+                "capture_url": d.capture_url,
+                "estado": d.estado,
+                "fecha": str(d.fecha),
+                "tipo": d.tipo,
+                "volante_id": d.volante_id,
+                "impresion_id": d.impresion_id
+            })
 
-# ── Marcar deuda como pagada
-@router.post("/pagar/{deuda_id}")
-def pagar_deuda(deuda_id: int, db: Session = Depends(get_db)):
-    deuda = db.query(Deuda).filter(Deuda.id == deuda_id).first()
-    if not deuda:
-        raise HTTPException(status_code=404, detail="Deuda no encontrada")
-    
-    deuda.estado = "Pagado"
-    db.commit()
-    db.refresh(deuda)
-    return deuda
+        resultado.append({
+            "vendedora_id": v.vendedora_id,
+            "nombre": v.nombre,  # <-- aquí agregamos el nombre
+            "cantidad_deudas": v.cantidad_deudas,
+            "total_deuda": float(v.total_deuda),
+            "deudas": deudas_list
+        })
+
+    return resultado

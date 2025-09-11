@@ -72,6 +72,13 @@ class PagoCreate(BaseModel):
     fecha: Optional[datetime] = None
     metodo: Optional[str] = None
     referencia: Optional[str] = None
+class DeudaBase(BaseModel):
+    vendedora_id: int
+    monto: float
+    metodo: Optional[str] = None
+    referencia: Optional[str] = None
+    capture_url: Optional[str] = None
+    tipo: Optional[str] = "diaria"
 
     class Config:
         orm_mode = True
