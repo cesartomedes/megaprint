@@ -9,22 +9,26 @@ export default function VendedoraVolantes({
   setTotalHoy,
   setTotalSemana,
   setCostoExtra,
+  limits,
 }) {
   const { user } = useContext(AuthContext);
   const [volantes, setVolantes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [conteosDiarios, setConteosDiarios] = useState({});
   const [conteosSemanales, setConteosSemanales] = useState({});
-  const [modalVolante, setModalVolante] = useState(null); // ✅ corregido
+  const [modalVolante, setModalVolante] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [haySeleccion, setHaySeleccion] = useState(false);
   const [animarBadge, setAnimarBadge] = useState({});
 
-  const LIMITE_DIARIO = 30;
-  const LIMITE_SEMANAL = 30 * 4;
-  const COSTO_EXTRA = 0.5;
+  // 🔹 Valores por defecto si limits no viene
+  const {
+    diario: LIMITE_DIARIO = 30,
+    semanal: LIMITE_SEMANAL = 120,
+    costoExcedente: COSTO_EXTRA = 0.5,
+  } = limits || {};
 
-  // 🔹 Fetch y carga inicial
+  // 🔹 Cargar volantes y conteos iniciales
   useEffect(() => {
     if (!user || !user.id) return;
 
@@ -37,32 +41,22 @@ export default function VendedoraVolantes({
         setVolantes(data);
         setCantidadVolantes(data.length);
 
-        // 🔹 Cargar conteos diarios desde localStorage
+        // Conteos diarios
         const today = new Date().toISOString().split("T")[0];
-        const savedDiarios = JSON.parse(
-          localStorage.getItem(`conteos_diarios_${user.id}`)
-        );
-        let diarios = {};
-        if (savedDiarios && savedDiarios.fecha === today) {
-          diarios = savedDiarios.conteos;
-        } else {
-          data.forEach((v) => (diarios[v.id] = 0));
-        }
+        const savedDiarios = JSON.parse(localStorage.getItem(`conteos_diarios_${user.id}`));
+        const diarios = savedDiarios && savedDiarios.fecha === today
+          ? savedDiarios.conteos
+          : Object.fromEntries(data.map((v) => [v.id, 0]));
         setConteosDiarios(diarios);
 
-        // 🔹 Cargar conteos semanales desde localStorage
+        // Conteos semanales
         const startOfWeek = new Date();
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
         const weekKey = startOfWeek.toISOString().split("T")[0];
-        const savedSemanales = JSON.parse(
-          localStorage.getItem(`conteos_semanales_${user.id}`)
-        );
-        let semanales = {};
-        if (savedSemanales && savedSemanales.fecha === weekKey) {
-          semanales = savedSemanales.conteos;
-        } else {
-          data.forEach((v) => (semanales[v.id] = 0));
-        }
+        const savedSemanales = JSON.parse(localStorage.getItem(`conteos_semanales_${user.id}`));
+        const semanales = savedSemanales && savedSemanales.fecha === weekKey
+          ? savedSemanales.conteos
+          : Object.fromEntries(data.map((v) => [v.id, 0]));
         setConteosSemanales(semanales);
 
         setLoading(false);
@@ -75,7 +69,7 @@ export default function VendedoraVolantes({
     fetchVolantes();
   }, [user, setCantidadVolantes]);
 
-  // 🔹 Guardar diarios en localStorage cada vez que cambian
+  // 🔹 Guardar conteos diarios en localStorage
   useEffect(() => {
     if (!user || !user.id) return;
     const today = new Date().toISOString().split("T")[0];
@@ -83,12 +77,11 @@ export default function VendedoraVolantes({
       `conteos_diarios_${user.id}`,
       JSON.stringify({ fecha: today, conteos: conteosDiarios })
     );
-
-    const totalHoyActual = Object.values(conteosDiarios).reduce((a, b) => a + b, 0);
-    setTotalHoy(totalHoyActual);
+    const total = Object.values(conteosDiarios).reduce((a, b) => a + b, 0);
+    setTotalHoy(total);
   }, [conteosDiarios, user, setTotalHoy]);
 
-  // 🔹 Guardar semanales en localStorage cada vez que cambian
+  // 🔹 Guardar conteos semanales en localStorage
   useEffect(() => {
     if (!user || !user.id) return;
     const now = new Date();
@@ -99,29 +92,27 @@ export default function VendedoraVolantes({
       `conteos_semanales_${user.id}`,
       JSON.stringify({ fecha: weekKey, conteos: conteosSemanales })
     );
-
-    const totalSemanaActual = Object.values(conteosSemanales).reduce((a, b) => a + b, 0);
-    setTotalSemana(totalSemanaActual);
+    const total = Object.values(conteosSemanales).reduce((a, b) => a + b, 0);
+    setTotalSemana(total);
   }, [conteosSemanales, user, setTotalSemana]);
 
   // 🔹 Registrar impresión en backend
   const registrarImpresion = async (volanteId, cantidad = 1) => {
     if (!user || !user.id) return;
     try {
-      const res = await axios.post("http://localhost:8000/impresiones/", {
+      await axios.post("http://localhost:8000/impresiones/", {
         usuario_id: user.id,
         volante_id: volanteId,
         fecha: new Date().toISOString().split("T")[0],
         cantidad_impresa: cantidad,
       });
-      return res.data;
     } catch (error) {
       console.error("Error registrando la impresión:", error);
       alert("No se pudo registrar la impresión");
     }
   };
 
-  // 🔹 Ajuste: incrementa solo en el badge, no en DB
+  // 🔹 Incrementar / decrementar badge
   const handleIncrementBadge = (volanteId, cantidad = 1) => {
     setConteosDiarios((prev) => ({ ...prev, [volanteId]: (prev[volanteId] || 0) + cantidad }));
     setConteosSemanales((prev) => ({ ...prev, [volanteId]: (prev[volanteId] || 0) + cantidad }));
@@ -132,24 +123,38 @@ export default function VendedoraVolantes({
     const currentDiario = conteosDiarios[volanteId] || 0;
     const currentSemanal = conteosSemanales[volanteId] || 0;
     if (currentDiario === 0) return;
-
-    const newDiarios = { ...conteosDiarios, [volanteId]: currentDiario - 1 };
-    const newSemanales = { ...conteosSemanales, [volanteId]: currentSemanal - 1 };
-    setConteosDiarios(newDiarios);
-    setConteosSemanales(newSemanales);
-
+    setConteosDiarios({ ...conteosDiarios, [volanteId]: currentDiario - 1 });
+    setConteosSemanales({ ...conteosSemanales, [volanteId]: currentSemanal - 1 });
     setAnimarBadge((prev) => ({ ...prev, [volanteId]: true }));
     setTimeout(() => setAnimarBadge((prev) => ({ ...prev, [volanteId]: false })), 300);
   };
 
-  if (loading) return <p className="p-4">Cargando volantes...</p>;
-  if (!volantes.length) return <p className="p-4">No tienes volantes asignados.</p>;
-
+  // 🔹 Totales y costo extra
   const totalHoy = Object.values(conteosDiarios).reduce((a, b) => a + b, 0);
   const totalSemana = Object.values(conteosSemanales).reduce((a, b) => a + b, 0);
-  const costoExtraModal =
-    (totalHoy > LIMITE_DIARIO ? (totalHoy - LIMITE_DIARIO) * COSTO_EXTRA : 0) +
-    (totalSemana > LIMITE_SEMANAL ? (totalSemana - LIMITE_SEMANAL) * COSTO_EXTRA : 0);
+  const extraDiario = totalHoy > LIMITE_DIARIO ? (totalHoy - LIMITE_DIARIO) * COSTO_EXTRA : 0;
+  const extraSemanal = totalSemana > LIMITE_SEMANAL ? (totalSemana - LIMITE_SEMANAL) * COSTO_EXTRA : 0;
+  const costoExtraModal = extraDiario + extraSemanal;
+
+  // 🔹 Mantener actualizado el costo extra si cambian los límites o los conteos
+  useEffect(() => {
+    setCostoExtra(costoExtraModal);
+  }, [costoExtraModal, setCostoExtra]);
+
+  // 🔹 Recalcular todo si cambian los límites desde el admin
+  useEffect(() => {
+    if (!volantes.length) return;
+
+    const totalHoy = Object.values(conteosDiarios).reduce((a, b) => a + b, 0);
+    const totalSemana = Object.values(conteosSemanales).reduce((a, b) => a + b, 0);
+    const extraDiario = totalHoy > LIMITE_DIARIO ? (totalHoy - LIMITE_DIARIO) * COSTO_EXTRA : 0;
+    const extraSemanal = totalSemana > LIMITE_SEMANAL ? (totalSemana - LIMITE_SEMANAL) * COSTO_EXTRA : 0;
+
+    setCostoExtra(extraDiario + extraSemanal);
+  }, [limits, conteosDiarios, conteosSemanales, volantes, setCostoExtra]);
+
+  if (loading) return <p className="p-4">Cargando volantes...</p>;
+  if (!volantes.length) return <p className="p-4">No tienes volantes asignados.</p>;
 
   return (
     <>
@@ -168,13 +173,12 @@ export default function VendedoraVolantes({
         </button>
       </div>
 
-      {/* Cards */}
+      {/* Cards Volantes */}
       <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {volantes.map((volante) => {
           const estaExtra =
             conteosDiarios[volante.id] > LIMITE_DIARIO ||
             conteosSemanales[volante.id] > LIMITE_SEMANAL;
-
           return (
             <div
               key={volante.id}
@@ -206,14 +210,14 @@ export default function VendedoraVolantes({
                   src={`http://localhost:8000${volante.url}`}
                   className="w-full h-80 sm:h-96 md:h-96 object-cover"
                   title={volante.nombre}
-                  onClick={() => handleIncrementBadge(volante.id)} // solo badge, no DB
+                  onClick={() => handleIncrementBadge(volante.id)}
                 />
               ) : (
                 <img
                   src={`http://localhost:8000${volante.url}`}
                   alt={volante.nombre}
                   className="w-full h-80 sm:h-96 md:h-96 object-cover"
-                  onClick={() => handleIncrementBadge(volante.id)} // solo badge, no DB
+                  onClick={() => handleIncrementBadge(volante.id)}
                 />
               )}
 
@@ -226,10 +230,10 @@ export default function VendedoraVolantes({
                 {volante.nombre}
                 <div className="mt-2">
                   <button
-                    onClick={() => setModalVolante(volante)} // ✅ abre modal
+                    onClick={() => setModalVolante(volante)}
                     className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
                   >
-                    Toque para ampliar
+                    Ampliar
                   </button>
                 </div>
               </div>
@@ -238,7 +242,7 @@ export default function VendedoraVolantes({
         })}
       </div>
 
-      {/* Modal Ampliar Volante */}
+      {/* Modal Ampliar */}
       {modalVolante && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div
@@ -284,23 +288,13 @@ export default function VendedoraVolantes({
             }`}
           >
             <h2 className="text-xl font-bold mb-4">Confirmar Orden de Impresión</h2>
-            <div className="mb-3">
-              <p>
-                Uso Diario: {totalHoy} / {LIMITE_DIARIO}
-              </p>
-              <p>
-                Uso Semanal: {totalSemana} / {LIMITE_SEMANAL}
-              </p>
+
+            <div className="mb-3 text-left">
+              <p>Límite Diario: {totalHoy} / {LIMITE_DIARIO} ({((totalHoy/LIMITE_DIARIO)*100).toFixed(1)}%)</p>
+              <p>Límite Semanal: {totalSemana} / {LIMITE_SEMANAL} ({((totalSemana/LIMITE_SEMANAL)*100).toFixed(1)}%)</p>
+              <p>Costo por página extra: ${costoExtraModal.toFixed(2)}</p>
             </div>
-            {costoExtraModal > 0 ? (
-              <p className="text-red-600 font-semibold mb-4">
-                Costo adicional: ${costoExtraModal.toFixed(2)}
-              </p>
-            ) : (
-              <p className="text-green-600 font-semibold mb-4">
-                Sin costo adicional. Esta impresión está dentro de tus límites gratuitos.
-              </p>
-            )}
+
             <div className="flex justify-between mt-6">
               <button
                 className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
@@ -313,13 +307,12 @@ export default function VendedoraVolantes({
                 onClick={async () => {
                   for (const volante of volantes) {
                     const cantidad = conteosDiarios[volante.id] || 0;
-                    if (cantidad > 0) {
-                      await registrarImpresion(volante.id, cantidad);
-                    }
+                    if (cantidad > 0) await registrarImpresion(volante.id, cantidad);
                   }
                   alert("✅ Impresión confirmada");
                   setShowConfirm(false);
 
+                  // Reset conteos
                   const resetDiarios = {};
                   const resetSemanales = {};
                   volantes.forEach((v) => {
@@ -329,7 +322,7 @@ export default function VendedoraVolantes({
                   setConteosDiarios(resetDiarios);
                   setConteosSemanales(resetSemanales);
                   setHaySeleccion(false);
-                  if (setCostoExtra) setCostoExtra(0);
+                  setCostoExtra(0);
                 }}
               >
                 Confirmar Impresión

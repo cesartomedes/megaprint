@@ -1,6 +1,6 @@
 # routes/deudas.py
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from database import get_db
 from models import Deuda, Vendedora
@@ -54,3 +54,36 @@ def obtener_deudas(db: Session = Depends(get_db)):
         })
 
     return resultado
+
+@router.get("/deudas/{usuario_id}")
+def obtener_deudas_usuario(usuario_id: int, db: Session = Depends(get_db)):
+    """
+    Devuelve todas las deudas pendientes de un usuario,
+    acumulando correctamente los montos extras y respetando los tipos.
+    """
+    deudas = db.query(Deuda).filter(
+        Deuda.vendedora_id == usuario_id,
+        Deuda.estado == "pendiente"  # solo pendientes
+    ).order_by(Deuda.fecha.asc()).all()
+
+    resultado = []
+    total_deuda = 0.0
+
+    for d in deudas:
+        monto = d.monto
+        total_deuda += monto
+        resultado.append({
+            "id": d.id,
+            "monto": float(monto),
+            "cantidad_excedida": d.cantidad_excedida,
+            "referencia": d.referencia,
+            "tipo": d.tipo,
+            "fecha": d.fecha.strftime("%Y-%m-%d %H:%M:%S"),
+            "estado": d.estado
+        })
+
+    return {
+        "usuario_id": usuario_id,
+        "total_deuda": float(total_deuda),
+        "deudas": resultado
+    }

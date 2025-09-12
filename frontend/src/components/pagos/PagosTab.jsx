@@ -8,6 +8,9 @@ export default function PagosTab() {
   const [updatingPago, setUpdatingPago] = useState(false);
   const [filtroPago, setFiltroPago] = useState("todos");
 
+  // ── Función para obtener el monto de una deuda
+  const calcularMontoDeuda = (deuda) => deuda?.monto || 0;
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -57,12 +60,12 @@ export default function PagosTab() {
   const totalPendiente =
     selectedVendedora?.deudas
       ?.filter((d) => d.estado === "pendiente")
-      .reduce((a, d) => a + d.monto, 0) || 0;
+      .reduce((a, d) => a + calcularMontoDeuda(d), 0) || 0;
 
   const totalPagado =
     selectedVendedora?.deudas
       ?.filter((d) => d.estado === "pagado")
-      .reduce((a, d) => a + d.monto, 0) || 0;
+      .reduce((a, d) => a + calcularMontoDeuda(d), 0) || 0;
 
   return (
     <div className="p-6 text-gray-900 dark:text-white transition-colors duration-300">
@@ -118,6 +121,7 @@ export default function PagosTab() {
             <h3 className="font-bold text-2xl mb-2">
               {selectedVendedora.nombre}
             </h3>
+
             <div className="mb-4 flex gap-6">
               <p className="font-semibold">
                 Pendiente: ${totalPendiente.toFixed(2)}
@@ -147,6 +151,8 @@ export default function PagosTab() {
                   <tr>
                     <th className="p-2 border">ID</th>
                     <th className="p-2 border">Monto</th>
+                    <th className="p-2 border">Excedido</th>
+                    <th className="p-2 border">Referencia</th>
                     <th className="p-2 border">Estado</th>
                     <th className="p-2 border">Fecha</th>
                     <th className="p-2 border">Acción</th>
@@ -164,6 +170,8 @@ export default function PagosTab() {
                     >
                       <td className="p-2 border">{d.id}</td>
                       <td className="p-2 border">${d.monto.toFixed(2)}</td>
+                      <td className="p-2 border">{d.cantidad_excedida || 0}</td>
+                      <td className="p-2 border">{d.referencia || "-"}</td>
                       <td className="p-2 border font-semibold">{d.estado}</td>
                       <td className="p-2 border">{d.fecha}</td>
                       <td className="p-2 border">

@@ -117,3 +117,11 @@ class Deuda(Base):
     vendedora = relationship("Vendedora", backref="deudas")
     volante = relationship("Volante")
     impresion = relationship("Impresion", backref="deudas")
+    
+class Configuracion(Base):
+    __tablename__ = "configuraciones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    clave = Column(String, unique=True, index=True, nullable=False)
+    valor = Column(String, nullable=False)
+    tipo = Column(String, nullable=False)  # "int", "float", "str"
