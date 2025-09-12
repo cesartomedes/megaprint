@@ -1,130 +1,101 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 
 export default function ConfiguracionTab() {
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [limits, setLimits] = useState({
-    diario: 30,
-    semanal: 120,
-    mensual: 500,
-    costoExcedente: 0.5,
-  });
-  const [applyToAll, setApplyToAll] = useState(false);
+  const [limits, setLimits] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await axios.get(
+          "http://localhost:8000/config_helper/limits",
+        );
+        setLimits(res.data);
+      } catch (err) {
+        console.error("Error al cargar límites:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setLimits({ ...limits, [name]: value });
+    setLimits({
+      ...limits,
+      [name]: name === "costoExcedente" ? parseFloat(value) : parseInt(value),
+    });
   };
 
-  const handleSave = () => {
-    console.log("Configuración guardada:", { maintenanceMode, limits, applyToAll });
-    alert("Configuración guardada correctamente!");
+  const handleSave = async () => {
+    try {
+      const res = await axios.post(
+        "http://localhost:8000/config_helper/limits",
+        limits,
+      );
+      alert(res.data.message || "Configuración guardada correctamente!");
+    } catch (err) {
+      console.error("Error al guardar límites:", err);
+      alert("Error al guardar límites");
+    }
   };
+
+  if (loading || !limits)
+    return (
+      <p className="text-gray-700 dark:text-gray-300">
+        Cargando configuración...
+      </p>
+    );
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 space-y-6 text-gray-900 dark:text-white transition-colors duration-300">
-      <h2 className="text-xl font-bold">Información del Sistema</h2>
+    <div className="min-h-screen p-6 bg-gray-50 dark:bg-gray-900 rounded-lg shadow-md transition-colors duration-300">
+      <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
+        Límites Globales
+      </h2>
 
-      {/* Nombre del Sistema */}
-      <div>
-        <label className="block font-semibold mb-1">Nombre del Sistema</label>
-        <input
-          type="text"
-          value="Sistema de Impresión"
-          readOnly
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-gray-100 dark:bg-gray-700 cursor-not-allowed text-gray-700 dark:text-gray-300"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {["diario", "semanal", "mensual", "costoExcedente"].map((key) => (
+          <div
+            key={key}
+            className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex flex-col transition-colors duration-300"
+          >
+            <label className="font-semibold mb-2 capitalize text-gray-700 dark:text-gray-300">
+              {key}
+            </label>
+            <input
+              type="number"
+              name={key}
+              step={key === "costoExcedente" ? "0.01" : "1"}
+              value={limits[key] ?? 0}
+              onChange={handleInputChange}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            />
+          </div>
+        ))}
       </div>
 
-      {/* Modo Mantenimiento */}
-      <div className="flex items-center gap-4">
-        <label className="font-semibold">Modo Mantenimiento:</label>
+      <div className="flex items-center gap-3 mt-4">
         <input
           type="checkbox"
-          checked={maintenanceMode}
-          onChange={(e) => setMaintenanceMode(e.target.checked)}
+          checked={limits.applyToAll ?? false}
+          onChange={(e) =>
+            setLimits({ ...limits, applyToAll: e.target.checked })
+          }
           className="h-5 w-5"
         />
-        <span className="text-gray-500 dark:text-gray-300">
-          Cuando está activo, solo los administradores pueden acceder al sistema
+        <span className="text-gray-700 dark:text-gray-300">
+          Aplicar límites a todos los usuarios
         </span>
       </div>
 
-      {/* Límites Globales */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Límites Globales Predeterminados</h3>
-        <p className="text-gray-500 dark:text-gray-300 text-sm">
-          Estos límites se aplicarán a nuevos usuarios y pueden aplicarse a todos los usuarios existentes
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-          <div>
-            <label className="block font-semibold mb-1">Límite Diario (páginas)</label>
-            <input
-              type="number"
-              name="diario"
-              value={limits.diario}
-              onChange={handleInputChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block font-semibold mb-1">Límite Semanal (páginas)</label>
-            <input
-              type="number"
-              name="semanal"
-              value={limits.semanal}
-              onChange={handleInputChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block font-semibold mb-1">Límite Mensual (páginas)</label>
-            <input
-              type="number"
-              name="mensual"
-              value={limits.mensual}
-              onChange={handleInputChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block font-semibold mb-1">Costo por Página Excedente ($)</label>
-            <input
-              type="number"
-              name="costoExcedente"
-              step="0.01"
-              value={limits.costoExcedente}
-              onChange={handleInputChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
-
-        {/* Aplicar a todos los usuarios */}
-        <div className="flex items-center gap-3 mt-2">
-          <input
-            type="checkbox"
-            checked={applyToAll}
-            onChange={(e) => setApplyToAll(e.target.checked)}
-            className="h-5 w-5"
-          />
-          <span className="text-gray-500 dark:text-gray-300">
-            Aplicar límites a todos los usuarios existentes
-          </span>
-        </div>
-
-        {/* Botón Guardar */}
-        <button
-          onClick={handleSave}
-          className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-        >
-          Guardar Límites
-        </button>
-
-        <p className="text-red-500 dark:text-red-400 text-sm mt-2">
-          Atención: Al aplicar límites globales, se actualizarán las configuraciones de límites de TODOS los usuarios existentes con los valores mostrados arriba.
-        </p>
-      </div>
+      <button
+        onClick={handleSave}
+        className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors"
+      >
+        Guardar Límites
+      </button>
     </div>
   );
 }

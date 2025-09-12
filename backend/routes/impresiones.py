@@ -6,15 +6,17 @@ from database import get_db
 from models import Impresion, Volante, Vendedora, Deuda
 from schemas import ImpresionCreate
 
+
 router = APIRouter()
 
-# ── Configuración global
-LIMITE_DIARIO = 30
-LIMITE_SEMANAL = 150
-COSTO_EXTRA = 0.5
+# # ── Configuración global
+# LIMITE_DIARIO = 30
+# LIMITE_SEMANAL = 150
+# COSTO_EXTRA = 0.5
 
 # ── Función para crear o actualizar deuda
 # ── Función para crear o actualizar deuda
+# ── Función para crear o actualizar deuda (revisada)
 def crear_o_actualizar_deuda(
     usuario_id: int,
     monto_extra: float,
@@ -28,26 +30,26 @@ def crear_o_actualizar_deuda(
     if monto_extra <= 0:
         return None
 
+    # Buscar deuda pendiente del mismo tipo y día/semana
     if tipo == "diaria":
         deuda = db.query(Deuda).filter(
             Deuda.vendedora_id == usuario_id,
             func.date(Deuda.fecha) == fecha,
             Deuda.tipo == "diaria",
-            Deuda.estado == "pendiente",
-            Deuda.volante_id == volante_id
+            Deuda.estado == "pendiente"
         ).first()
-    else:
+    else:  # semanal
         inicio_semana = fecha - timedelta(days=fecha.weekday())
         deuda = db.query(Deuda).filter(
             Deuda.vendedora_id == usuario_id,
             Deuda.fecha >= inicio_semana,
             Deuda.tipo == "semanal",
-            Deuda.estado == "pendiente",
-            Deuda.volante_id == volante_id
+            Deuda.estado == "pendiente"
         ).first()
 
     if deuda:
-        deuda.monto += monto_extra
+        # Reemplazamos el monto y cantidad excedida, NO sumamos
+        deuda.monto = monto_extra
         deuda.cantidad_excedida = cantidad_excedida
         deuda.impresion_id = impresion_id
         deuda.referencia = f"{cantidad_excedida} excedió el límite"
@@ -72,30 +74,24 @@ def crear_o_actualizar_deuda(
 
 
 
-# ── Crear impresión
+# ── Crear impresión (revisada)
 @router.post("/impresiones/")
 def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
     hoy = impresion.fecha
-    inicio_semana = hoy - timedelta(days=hoy.weekday())  # lunes actual
+    inicio_semana = hoy - timedelta(days=hoy.weekday())
 
-    # ── Calcular total impreso hoy y esta semana
+    # ── Total de impresiones hoy y esta semana (todas, sin filtrar volante)
     total_hoy = (
         db.query(func.sum(Impresion.cantidad_impresa))
-        .filter(
-            Impresion.usuario_id == impresion.usuario_id,
-            Impresion.volante_id == impresion.volante_id,
-            Impresion.fecha == hoy,
-        )
+        .filter(Impresion.usuario_id == impresion.usuario_id,
+                Impresion.fecha == hoy)
         .scalar() or 0
     )
 
     total_semana = (
         db.query(func.sum(Impresion.cantidad_impresa))
-        .filter(
-            Impresion.usuario_id == impresion.usuario_id,
-            Impresion.volante_id == impresion.volante_id,
-            Impresion.fecha >= inicio_semana,
-        )
+        .filter(Impresion.usuario_id == impresion.usuario_id,
+                Impresion.fecha >= inicio_semana)
         .scalar() or 0
     )
 
@@ -117,13 +113,11 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
         exceso=exceso_total,
         costo_extra=costo_extra
     )
-
- # ── Guardar la impresión
     db.add(nueva_impresion)
     db.commit()
     db.refresh(nueva_impresion)
 
-    # ── Crear o actualizar deudas acumulativas vinculadas a la impresión
+    # ── Crear o actualizar deuda solo con el exceso actual
     if exceso_diario > 0:
         crear_o_actualizar_deuda(
             usuario_id=impresion.usuario_id,
@@ -148,7 +142,6 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
             cantidad_excedida=exceso_semanal
         )
 
-
     return {
         "mensaje": "Impresión registrada con exceso" if exceso_total > 0 else "Impresión registrada",
         "limite_diario": LIMITE_DIARIO,
@@ -158,6 +151,9 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
         "exceso_diario": exceso_diario,
         "exceso_semanal": exceso_semanal,
         "costo_extra": float(costo_extra),
+        "excedido": True if nuevo_total_hoy > LIMITE_DIARIO else False,
+        "impresiones_gratis_restantes": max(LIMITE_DIARIO - total_hoy, 0),
+        "impresiones_extras": exceso_diario,
         "impresion": {
             "id": nueva_impresion.id,
             "usuario_id": nueva_impresion.usuario_id,

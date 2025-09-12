@@ -80,5 +80,11 @@ class DeudaBase(BaseModel):
     capture_url: Optional[str] = None
     tipo: Optional[str] = "diaria"
 
+class LimitsUpdate(BaseModel):
+    diario: float
+    semanal: float
+    mensual: float
+    costoExcedente: float
+    applyToAll: bool = False
     class Config:
         orm_mode = True
