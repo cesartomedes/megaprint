@@ -1,14 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
-export default function VendedoraDeudas({
-  deudas = [],
-  onRegistrarPago,
-  excesoDiario = 0,
-  excesoSemanal = 0,
-  autoOpenModal = false,
-  setAutoOpenModal,
-  costoExcedente = 0.5, // valor por defecto
-}) {
+export default function VendedoraDeudas({ deudas = [], onRegistrarPago }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedDeuda, setSelectedDeuda] = useState(null);
   const [formData, setFormData] = useState({
@@ -20,27 +12,6 @@ export default function VendedoraDeudas({
   const [mensaje, setMensaje] = useState(null);
 
   const bancos = ["Banesco", "Provincial", "Mercantil", "Venezuela"];
-
-  // Generar deuda temporal por exceso
-  const deudaExceso =
-    excesoDiario + excesoSemanal > 0
-      ? {
-          id: "EXC-" + Date.now(),
-          monto: (excesoDiario + excesoSemanal) * costoExcedente,
-          estado: "pendiente",
-          fecha: new Date().toISOString(),
-          tipo: "Exceso de impresión",
-        }
-      : null;
-
-  // Abrir modal automáticamente si hay exceso
-  useEffect(() => {
-    if (autoOpenModal && deudaExceso) {
-      setSelectedDeuda(deudaExceso);
-      setModalOpen(true);
-      if (setAutoOpenModal) setAutoOpenModal(false);
-    }
-  }, [autoOpenModal, deudaExceso]);
 
   const openModal = (deuda) => {
     setSelectedDeuda(deuda);
@@ -70,7 +41,12 @@ export default function VendedoraDeudas({
 
     try {
       await onRegistrarPago(payload);
-      setMensaje({ tipo: "success", texto: "Pago registrado correctamente ✅" });
+
+      setMensaje({
+        tipo: "success",
+        texto: "Pago registrado correctamente ✅",
+      });
+      closeModal();
     } catch (err) {
       console.error(err);
       setMensaje({ tipo: "error", texto: "Error al registrar el pago ❌" });
@@ -79,15 +55,13 @@ export default function VendedoraDeudas({
     }
   };
 
-  const allDeudas = deudaExceso ? [deudaExceso, ...deudas] : deudas;
-
   return (
     <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 transition-colors duration-300">
       <h3 className="font-bold mb-4 text-2xl text-gray-800 dark:text-white">
         Mis Deudas
       </h3>
 
-      {allDeudas.length === 0 ? (
+      {deudas.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
           No tienes deudas pendientes 🎉
         </p>
@@ -111,7 +85,7 @@ export default function VendedoraDeudas({
                 </tr>
               </thead>
               <tbody>
-                {allDeudas.map((deuda) => (
+                {deudas.map((deuda) => (
                   <tr
                     key={deuda.id}
                     className="even:bg-gray-50 dark:even:bg-gray-900"
@@ -144,7 +118,7 @@ export default function VendedoraDeudas({
                       {new Date(deuda.fecha).toLocaleString("es-VE")}
                     </td>
                     <td className="px-2 py-1 border text-center">
-                      {deuda.estado === "pendiente" && (
+                      {deuda.estado === "pendiente" && typeof deuda.id === "number" && (
                         <button
                           onClick={() => openModal(deuda)}
                           className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -161,7 +135,7 @@ export default function VendedoraDeudas({
 
           {/* Tarjetas para móviles */}
           <div className="md:hidden space-y-3">
-            {allDeudas.map((deuda) => (
+            {deudas.map((deuda) => (
               <div
                 key={deuda.id}
                 className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 shadow-sm"
@@ -194,7 +168,7 @@ export default function VendedoraDeudas({
                 <p className="text-gray-800 dark:text-white">
                   Fecha: {new Date(deuda.fecha).toLocaleString("es-VE")}
                 </p>
-                {deuda.estado === "pendiente" && (
+                {deuda.estado === "pendiente" && typeof deuda.id === "number" && (
                   <button
                     onClick={() => openModal(deuda)}
                     className="mt-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"

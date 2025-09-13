@@ -14,7 +14,7 @@ export default function PagosTab() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data } = await axios.get("http://127.0.0.1:8000/deudas");
+        const { data } = await axios.get("http://127.0.0.1:8000/deudas/deudas");
         setVendedoras(data);
       } catch (error) {
         console.error(error);
