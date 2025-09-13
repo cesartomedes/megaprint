@@ -2,13 +2,25 @@ import React, { useContext, useState, useEffect } from "react";
 import { FaPrint, FaFileAlt, FaSun, FaMoon } from "react-icons/fa";
 import axios from "axios";
 import VendedoraVolantes from "./VendedoraVolantes";
+import VendedoraDeudas from "./VendedoraDeudas";
 import { AuthContext } from "../context/AuthContext";
 
 export default function VendedoraDashboard({ usuarioId }) {
   const { user, logout } = useContext(AuthContext);
 
   const [limits, setLimits] = useState({});
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("darkMode") === "true");
+  const [darkMode, setDarkMode] = useState(
+    () => localStorage.getItem("darkMode") === "true",
+  );
+  const [cantidadVolantes, setCantidadVolantes] = useState(0);
+  const [totalHoy, setTotalHoy] = useState(0);
+  const [totalSemana, setTotalSemana] = useState(0);
+  const [costoExtra, setCostoExtra] = useState(0);
+  const [deudas, setDeudas] = useState([]);
+  const [loadingDeudas, setLoadingDeudas] = useState(true);
+
+  // 🔴 Para autoabrir el modal de deuda por exceso
+  const [autoOpenModal, setAutoOpenModal] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -18,7 +30,9 @@ export default function VendedoraDashboard({ usuarioId }) {
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const res = await axios.get("http://localhost:8000/config_helper/limits");
+        const res = await axios.get(
+          "http://localhost:8000/config_helper/limits",
+        );
         setLimits(res.data);
       } catch (err) {
         console.error(err);
@@ -27,29 +41,33 @@ export default function VendedoraDashboard({ usuarioId }) {
     fetchLimits();
   }, []);
 
-  const { diario: LIMITE_DIARIO = 30, semanal: LIMITE_SEMANAL = 120, costoExcedente: COSTO_EXTRA = 0.5 } = limits;
+  const {
+    diario: LIMITE_DIARIO = 30,
+    semanal: LIMITE_SEMANAL = 120,
+    costoExcedente: COSTO_EXTRA = 0.5,
+  } = limits;
 
-  const [cantidadVolantes, setCantidadVolantes] = useState(0);
-  const [totalHoy, setTotalHoy] = useState(0);
-  const [totalSemana, setTotalSemana] = useState(0);
-  const [costoExtra, setCostoExtra] = useState(0);
-  const [deudas, setDeudas] = useState([]);
-  const [loadingDeudas, setLoadingDeudas] = useState(true);
-
-  // 🔴 Excesos
+  // 🔹 Excesos
   const excesoDiario = Math.max(totalHoy - LIMITE_DIARIO, 0);
   const excesoSemanal = Math.max(totalSemana - LIMITE_SEMANAL, 0);
 
   useEffect(() => {
-    const extraTotal = excesoDiario * COSTO_EXTRA + excesoSemanal * COSTO_EXTRA;
+    const extraTotal = (excesoDiario + excesoSemanal) * COSTO_EXTRA;
     setCostoExtra(extraTotal);
+
+    // Si hay exceso, abrir automáticamente el modal
+    if (excesoDiario > 0 || excesoSemanal > 0) {
+      setAutoOpenModal(true);
+    }
   }, [excesoDiario, excesoSemanal, COSTO_EXTRA]);
 
   useEffect(() => {
     if (!usuarioId) return;
     const fetchDeudas = async () => {
       try {
-        const res = await axios.get(`http://localhost:8000/deudas/${usuarioId}`);
+        const res = await axios.get(
+          `http://localhost:8000/deudas/${usuarioId}`,
+        );
         setDeudas(res.data || []);
       } catch (error) {
         console.error("Error cargando deudas:", error);
@@ -60,20 +78,44 @@ export default function VendedoraDashboard({ usuarioId }) {
     fetchDeudas();
   }, [usuarioId]);
 
+  const registrarPago = async (payload) => {
+    try {
+      await axios.post("http://localhost:8000/deudas/registrar-pago", payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      // 🔄 Refrescar deudas después del pago
+      const res = await axios.get(`http://localhost:8000/deudas/${usuarioId}`);
+      setDeudas(res.data || []);
+    } catch (error) {
+      console.error("Error registrando pago:", error);
+      alert("Hubo un error al registrar el pago. Inténtalo nuevamente.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 p-4">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-md p-4 rounded-lg flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">MegaPrint</h1>
-          {user && <p className="text-gray-600 dark:text-gray-300 mt-1">{user.username}</p>}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            MegaPrint
+          </h1>
+          {user && (
+            <p className="text-gray-600 dark:text-gray-300 mt-1">
+              {user.username}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setDarkMode(!darkMode)}
             className="bg-gray-200 dark:bg-gray-700 p-2 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600"
           >
-            {darkMode ? <FaSun className="text-yellow-400" /> : <FaMoon className="text-gray-800 dark:text-white" />}
+            {darkMode ? (
+              <FaSun className="text-yellow-400" />
+            ) : (
+              <FaMoon className="text-gray-800 dark:text-white" />
+            )}
           </button>
           <button
             onClick={logout}
@@ -101,45 +143,61 @@ export default function VendedoraDashboard({ usuarioId }) {
         <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 flex items-center gap-4">
           <FaPrint className="text-4xl text-blue-500" />
           <div>
-            <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-1">Volantes disponibles</h2>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{cantidadVolantes}</p>
+            <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-1">
+              Volantes disponibles
+            </h2>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+              {cantidadVolantes}
+            </p>
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 flex items-center gap-4">
           <FaFileAlt className="text-4xl text-yellow-500" />
           <div>
-            <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-1">Pagos pendientes</h2>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{deudas.length}</p>
+            <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-1">
+              Pagos pendientes
+            </h2>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+              {deudas.length}
+            </p>
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 text-center">
-          <p className="font-semibold text-gray-700 dark:text-gray-200 mb-1">Costo por página extra</p>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">${costoExtra.toFixed(2)}</p>
+          <p className="font-semibold text-gray-700 dark:text-gray-200 mb-1">
+            Costo por página extra
+          </p>
+          <p className="text-xl font-bold text-gray-900 dark:text-white">
+            ${COSTO_EXTRA.toFixed(2)}
+          </p>
         </div>
       </main>
 
-      {/* Límites */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div className={`bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 text-center ${excesoDiario > 0 ? "border-red-500 border-2" : ""}`}>
-          <p className="font-semibold text-gray-700 dark:text-gray-200">Límite Diario</p>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">{totalHoy} / {LIMITE_DIARIO}</p>
-        </div>
-        <div className={`bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 text-center ${excesoSemanal > 0 ? "border-purple-600 border-2" : ""}`}>
-          <p className="font-semibold text-gray-700 dark:text-gray-200">Límite Semanal</p>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">{totalSemana} / {LIMITE_SEMANAL}</p>
-        </div>
-      </section>
-
       {/* Últimos volantes */}
       <section className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Últimos volantes subidos</h2>
         <VendedoraVolantes
           darkMode={darkMode}
           setCantidadVolantes={setCantidadVolantes}
           setTotalHoy={setTotalHoy}
           setTotalSemana={setTotalSemana}
           setCostoExtra={setCostoExtra}
-          limits={{ diario: LIMITE_DIARIO, semanal: LIMITE_SEMANAL, costoExcedente: COSTO_EXTRA }}
+          limits={{
+            diario: LIMITE_DIARIO,
+            semanal: LIMITE_SEMANAL,
+            costoExcedente: COSTO_EXTRA,
+          }}
+        />
+      </section>
+
+      {/* Mis Deudas */}
+      <section className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
+        <VendedoraDeudas
+          deudas={deudas}
+          onRegistrarPago={registrarPago}
+          excesoDiario={excesoDiario}
+          excesoSemanal={excesoSemanal}
+          autoOpenModal={autoOpenModal}
+          setAutoOpenModal={setAutoOpenModal}
+          costoExcedente={COSTO_EXTRA} // <-- se agrega esta prop
         />
       </section>
     </div>
