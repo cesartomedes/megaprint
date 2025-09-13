@@ -38,7 +38,7 @@ app.include_router(categorias.router, prefix="/categorias", tags=["Categorias"])
 app.include_router(pagos.router, prefix="/pagos", tags=["Pagos"])
 app.include_router(catalogos.router, prefix="/catalogos", tags=["Catalogos"])
 app.include_router(config_router)  # Eliminado prefijo duplicado
-app.include_router(deudas.router)
+app.include_router(deudas.router, prefix="/deudas", tags=["Deudas"])
 app.include_router(dashboard.router)
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(volantes.router, prefix="/volantes")

@@ -8,7 +8,6 @@ export default function VendedoraVolantes({
   setCantidadVolantes,
   setTotalHoy,
   setTotalSemana,
-  setCostoExtra,
   limits,
 }) {
   const { user } = useContext(AuthContext);
@@ -21,48 +20,35 @@ export default function VendedoraVolantes({
   const [haySeleccion, setHaySeleccion] = useState(false);
   const [animarBadge, setAnimarBadge] = useState({});
 
-  // 🔹 Valores por defecto si limits no viene
-  const {
-    diario: LIMITE_DIARIO = 30,
-    semanal: LIMITE_SEMANAL = 120,
-    costoExcedente: COSTO_EXTRA = 0.5,
-  } = limits || {};
+  const { diario: LIMITE_DIARIO = 30, semanal: LIMITE_SEMANAL = 120, costoExcedente: COSTO_EXTRA = 0.5 } = limits || {};
 
   // 🔹 Cargar volantes y conteos iniciales
   useEffect(() => {
-    if (!user || !user.id) return;
+    if (!user?.id) return;
 
     async function fetchVolantes() {
       try {
-        const res = await axios.get(
-          `http://localhost:8000/catalogos/vendedora/${user.id}`
-        );
+        const res = await axios.get(`http://localhost:8000/catalogos/vendedora/${user.id}`);
         const data = res.data;
         setVolantes(data);
         setCantidadVolantes(data.length);
 
         // Conteos diarios
         const today = new Date().toISOString().split("T")[0];
-        const savedDiarios = JSON.parse(
-          localStorage.getItem(`conteos_diarios_${user.id}`)
-        );
-        const diarios =
-          savedDiarios && savedDiarios.fecha === today
-            ? savedDiarios.conteos
-            : Object.fromEntries(data.map((v) => [v.id, 0]));
+        const savedDiarios = JSON.parse(localStorage.getItem(`conteos_diarios_${user.id}`));
+        const diarios = savedDiarios?.fecha === today
+          ? savedDiarios.conteos
+          : Object.fromEntries(data.map(v => [v.id, 0]));
         setConteosDiarios(diarios);
 
         // Conteos semanales
         const startOfWeek = new Date();
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
         const weekKey = startOfWeek.toISOString().split("T")[0];
-        const savedSemanales = JSON.parse(
-          localStorage.getItem(`conteos_semanales_${user.id}`)
-        );
-        const semanales =
-          savedSemanales && savedSemanales.fecha === weekKey
-            ? savedSemanales.conteos
-            : Object.fromEntries(data.map((v) => [v.id, 0]));
+        const savedSemanales = JSON.parse(localStorage.getItem(`conteos_semanales_${user.id}`));
+        const semanales = savedSemanales?.fecha === weekKey
+          ? savedSemanales.conteos
+          : Object.fromEntries(data.map(v => [v.id, 0]));
         setConteosSemanales(semanales);
 
         setLoading(false);
@@ -77,19 +63,18 @@ export default function VendedoraVolantes({
 
   // 🔹 Guardar conteos diarios en localStorage
   useEffect(() => {
-    if (!user || !user.id) return;
+    if (!user?.id) return;
     const today = new Date().toISOString().split("T")[0];
     localStorage.setItem(
       `conteos_diarios_${user.id}`,
       JSON.stringify({ fecha: today, conteos: conteosDiarios })
     );
-    const total = Object.values(conteosDiarios).reduce((a, b) => a + b, 0);
-    setTotalHoy(total);
+    setTotalHoy(Object.values(conteosDiarios).reduce((a, b) => a + b, 0));
   }, [conteosDiarios, user, setTotalHoy]);
 
   // 🔹 Guardar conteos semanales en localStorage
   useEffect(() => {
-    if (!user || !user.id) return;
+    if (!user?.id) return;
     const now = new Date();
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
@@ -98,13 +83,11 @@ export default function VendedoraVolantes({
       `conteos_semanales_${user.id}`,
       JSON.stringify({ fecha: weekKey, conteos: conteosSemanales })
     );
-    const total = Object.values(conteosSemanales).reduce((a, b) => a + b, 0);
-    setTotalSemana(total);
+    setTotalSemana(Object.values(conteosSemanales).reduce((a, b) => a + b, 0));
   }, [conteosSemanales, user, setTotalSemana]);
 
-  // 🔹 Registrar impresión en backend
   const registrarImpresion = async (volanteId, cantidad = 1) => {
-    if (!user || !user.id) return;
+    if (!user?.id) return;
     try {
       await axios.post("http://localhost:8000/impresiones/impresiones/", {
         usuario_id: user.id,
@@ -118,16 +101,9 @@ export default function VendedoraVolantes({
     }
   };
 
-  // 🔹 Incrementar / decrementar badge
   const handleIncrementBadge = (volanteId, cantidad = 1) => {
-    setConteosDiarios((prev) => ({
-      ...prev,
-      [volanteId]: (prev[volanteId] || 0) + cantidad,
-    }));
-    setConteosSemanales((prev) => ({
-      ...prev,
-      [volanteId]: (prev[volanteId] || 0) + cantidad,
-    }));
+    setConteosDiarios(prev => ({ ...prev, [volanteId]: (prev[volanteId] || 0) + cantidad }));
+    setConteosSemanales(prev => ({ ...prev, [volanteId]: (prev[volanteId] || 0) + cantidad }));
     setHaySeleccion(true);
   };
 
@@ -136,58 +112,19 @@ export default function VendedoraVolantes({
     const currentSemanal = conteosSemanales[volanteId] || 0;
     if (currentDiario === 0) return;
     setConteosDiarios({ ...conteosDiarios, [volanteId]: currentDiario - 1 });
-    setConteosSemanales({
-      ...conteosSemanales,
-      [volanteId]: currentSemanal - 1,
-    });
-    setAnimarBadge((prev) => ({ ...prev, [volanteId]: true }));
-    setTimeout(
-      () => setAnimarBadge((prev) => ({ ...prev, [volanteId]: false })),
-      300
-    );
+    setConteosSemanales({ ...conteosSemanales, [volanteId]: currentSemanal - 1 });
+    setAnimarBadge(prev => ({ ...prev, [volanteId]: true }));
+    setTimeout(() => setAnimarBadge(prev => ({ ...prev, [volanteId]: false })), 300);
   };
 
-  // 🔹 Totales y costo extra
   const totalHoy = Object.values(conteosDiarios).reduce((a, b) => a + b, 0);
-  const totalSemana = Object.values(conteosSemanales).reduce(
-    (a, b) => a + b,
-    0
-  );
-  const extraDiario =
-    totalHoy > LIMITE_DIARIO ? (totalHoy - LIMITE_DIARIO) * COSTO_EXTRA : 0;
-  const extraSemanal =
-    totalSemana > LIMITE_SEMANAL
-      ? (totalSemana - LIMITE_SEMANAL) * COSTO_EXTRA
-      : 0;
+  const totalSemana = Object.values(conteosSemanales).reduce((a, b) => a + b, 0);
+  const extraDiario = totalHoy > LIMITE_DIARIO ? (totalHoy - LIMITE_DIARIO) * COSTO_EXTRA : 0;
+  const extraSemanal = totalSemana > LIMITE_SEMANAL ? (totalSemana - LIMITE_SEMANAL) * COSTO_EXTRA : 0;
   const costoExtraModal = extraDiario + extraSemanal;
 
-  // 🔹 Mantener actualizado el costo extra si cambian los límites o los conteos
-  useEffect(() => {
-    setCostoExtra(costoExtraModal);
-  }, [costoExtraModal, setCostoExtra]);
-
-  // 🔹 Recalcular todo si cambian los límites desde el admin
-  useEffect(() => {
-    if (!volantes.length) return;
-
-    const totalHoy = Object.values(conteosDiarios).reduce((a, b) => a + b, 0);
-    const totalSemana = Object.values(conteosSemanales).reduce(
-      (a, b) => a + b,
-      0
-    );
-    const extraDiario =
-      totalHoy > LIMITE_DIARIO ? (totalHoy - LIMITE_DIARIO) * COSTO_EXTRA : 0;
-    const extraSemanal =
-      totalSemana > LIMITE_SEMANAL
-        ? (totalSemana - LIMITE_SEMANAL) * COSTO_EXTRA
-        : 0;
-
-    setCostoExtra(extraDiario + extraSemanal);
-  }, [limits, conteosDiarios, conteosSemanales, volantes, setCostoExtra]);
-
   if (loading) return <p className="p-4">Cargando volantes...</p>;
-  if (!volantes.length)
-    return <p className="p-4">No tienes volantes asignados.</p>;
+  if (!volantes.length) return <p className="p-4">No tienes volantes asignados.</p>;
 
   return (
     <>
@@ -209,16 +146,12 @@ export default function VendedoraVolantes({
       {/* Cards Volantes */}
       <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {volantes.map((volante) => {
-          const estaExtra =
-            conteosDiarios[volante.id] > LIMITE_DIARIO ||
-            conteosSemanales[volante.id] > LIMITE_SEMANAL;
+          const estaExtra = conteosDiarios[volante.id] > LIMITE_DIARIO || conteosSemanales[volante.id] > LIMITE_SEMANAL;
           return (
             <div
               key={volante.id}
               className={`relative rounded-xl overflow-hidden shadow-lg transition transform hover:scale-105 cursor-pointer ${
-                darkMode
-                  ? "bg-gray-800 border border-gray-700 text-white"
-                  : "bg-white border border-gray-200 text-gray-900"
+                darkMode ? "bg-gray-800 border border-gray-700 text-white" : "bg-white border border-gray-200 text-gray-900"
               }`}
             >
               <span
@@ -228,10 +161,7 @@ export default function VendedoraVolantes({
               >
                 {conteosDiarios[volante.id]}
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDecrement(volante.id);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); handleDecrement(volante.id); }}
                   className="ml-2 text-red-300 hover:text-red-500 font-bold"
                 >
                   ×
@@ -256,9 +186,7 @@ export default function VendedoraVolantes({
 
               <div
                 className={`p-5 text-center font-semibold text-lg ${
-                  darkMode
-                    ? "bg-gray-700 text-white"
-                    : "bg-gray-100 text-gray-900"
+                  darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-900"
                 }`}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -280,11 +208,7 @@ export default function VendedoraVolantes({
       {/* Modal Ampliar */}
       {modalVolante && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div
-            className={`relative w-full max-w-3xl rounded-xl shadow-xl overflow-hidden ${
-              darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
-            }`}
-          >
+          <div className={`relative w-full max-w-3xl rounded-xl shadow-xl overflow-hidden ${darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}>
             <div className="flex justify-between items-center p-4 border-b border-gray-300 dark:border-gray-700">
               <h2 className="text-xl font-bold">{modalVolante.nombre}</h2>
               <button
@@ -294,7 +218,6 @@ export default function VendedoraVolantes({
                 Cerrar
               </button>
             </div>
-
             <div className="p-4">
               {modalVolante.nombre.toLowerCase().endsWith(".pdf") ? (
                 <iframe
@@ -317,24 +240,12 @@ export default function VendedoraVolantes({
       {/* Modal Confirmar Impresión */}
       {showConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
-          <div
-            className={`w-full max-w-md rounded-xl p-6 shadow-xl text-center ${
-              darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
-            }`}
-          >
-            <h2 className="text-xl font-bold mb-4">
-              Confirmar Orden de Impresión
-            </h2>
+          <div className={`w-full max-w-md rounded-xl p-6 shadow-xl text-center ${darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}>
+            <h2 className="text-xl font-bold mb-4">Confirmar Orden de Impresión</h2>
 
             <div className="mb-3 text-left">
-              <p>
-                Límite Diario: {totalHoy} / {LIMITE_DIARIO} (
-                {((totalHoy / LIMITE_DIARIO) * 100).toFixed(1)}%)
-              </p>
-              <p>
-                Límite Semanal: {totalSemana} / {LIMITE_SEMANAL} (
-                {((totalSemana / LIMITE_SEMANAL) * 100).toFixed(1)}%)
-              </p>
+              <p>Límite Diario: {totalHoy} / {LIMITE_DIARIO} ({((totalHoy / LIMITE_DIARIO) * 100).toFixed(1)}%)</p>
+              <p>Límite Semanal: {totalSemana} / {LIMITE_SEMANAL} ({((totalSemana / LIMITE_SEMANAL) * 100).toFixed(1)}%)</p>
               <p>Costo por página extra: ${costoExtraModal.toFixed(2)}</p>
             </div>
 
@@ -350,23 +261,18 @@ export default function VendedoraVolantes({
                 onClick={async () => {
                   for (const volante of volantes) {
                     const cantidad = conteosDiarios[volante.id] || 0;
-                    if (cantidad > 0)
-                      await registrarImpresion(volante.id, cantidad);
+                    if (cantidad > 0) await registrarImpresion(volante.id, cantidad);
                   }
                   alert("✅ Impresión confirmada");
                   setShowConfirm(false);
 
-                  // Reset conteos
+                  // Reset conteos locales
                   const resetDiarios = {};
                   const resetSemanales = {};
-                  volantes.forEach((v) => {
-                    resetDiarios[v.id] = 0;
-                    resetSemanales[v.id] = 0;
-                  });
+                  volantes.forEach(v => { resetDiarios[v.id] = 0; resetSemanales[v.id] = 0; });
                   setConteosDiarios(resetDiarios);
                   setConteosSemanales(resetSemanales);
                   setHaySeleccion(false);
-                  setCostoExtra(0);
                 }}
               >
                 Confirmar Impresión

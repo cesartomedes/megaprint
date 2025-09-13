@@ -5,37 +5,34 @@ import VendedoraVolantes from "./VendedoraVolantes";
 import VendedoraDeudas from "./VendedoraDeudas";
 import { AuthContext } from "../context/AuthContext";
 
-export default function VendedoraDashboard({ usuarioId }) {
+export default function VendedoraDashboard() {
   const { user, logout } = useContext(AuthContext);
 
   const [limits, setLimits] = useState({});
   const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem("darkMode") === "true",
+    () => localStorage.getItem("darkMode") === "true"
   );
+
   const [cantidadVolantes, setCantidadVolantes] = useState(0);
   const [totalHoy, setTotalHoy] = useState(0);
   const [totalSemana, setTotalSemana] = useState(0);
-  const [costoExtra, setCostoExtra] = useState(0);
   const [deudas, setDeudas] = useState([]);
   const [loadingDeudas, setLoadingDeudas] = useState(true);
 
-  // 🔴 Para autoabrir el modal de deuda por exceso
-  const [autoOpenModal, setAutoOpenModal] = useState(false);
-
+  // Aplicar dark mode
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
     localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
 
+  // Traer límites
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const res = await axios.get(
-          "http://localhost:8000/config_helper/limits",
-        );
+        const res = await axios.get("http://localhost:8000/config_helper/limits");
         setLimits(res.data);
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching limits:", err);
       }
     };
     fetchLimits();
@@ -47,75 +44,78 @@ export default function VendedoraDashboard({ usuarioId }) {
     costoExcedente: COSTO_EXTRA = 0.5,
   } = limits;
 
-  // 🔹 Excesos
   const excesoDiario = Math.max(totalHoy - LIMITE_DIARIO, 0);
   const excesoSemanal = Math.max(totalSemana - LIMITE_SEMANAL, 0);
+  const totalExceso = (excesoDiario + excesoSemanal) * COSTO_EXTRA;
 
-  useEffect(() => {
-    const extraTotal = (excesoDiario + excesoSemanal) * COSTO_EXTRA;
-    setCostoExtra(extraTotal);
-
-    // Si hay exceso, abrir automáticamente el modal
-    if (excesoDiario > 0 || excesoSemanal > 0) {
-      setAutoOpenModal(true);
-    }
-  }, [excesoDiario, excesoSemanal, COSTO_EXTRA]);
-
-  useEffect(() => {
-    if (!usuarioId) return;
-    const fetchDeudas = async () => {
-      try {
-        const res = await axios.get(
-          `http://localhost:8000/deudas/${usuarioId}`,
-        );
-        setDeudas(res.data || []);
-      } catch (error) {
-        console.error("Error cargando deudas:", error);
-      } finally {
-        setLoadingDeudas(false);
-      }
-    };
-    fetchDeudas();
-  }, [usuarioId]);
-
-  const registrarPago = async (payload) => {
+  // 🔹 Traer deudas
+  const fetchDeudas = async () => {
+    if (!user?.id) return;
+    setLoadingDeudas(true);
     try {
-      await axios.post("http://localhost:8000/deudas/registrar-pago", payload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      // 🔄 Refrescar deudas después del pago
-      const res = await axios.get(`http://localhost:8000/deudas/${usuarioId}`);
-      setDeudas(res.data || []);
-    } catch (error) {
-      console.error("Error registrando pago:", error);
-      alert("Hubo un error al registrar el pago. Inténtalo nuevamente.");
+      const res = await axios.get(`http://localhost:8000/deudas/deudas/${user.id}`);
+      console.log("Deudas backend:", res.data);
+      setDeudas(Array.isArray(res.data.deudas) ? res.data.deudas : []);
+    } catch (err) {
+      console.error("Error cargando deudas:", err);
+      setDeudas([]);
+    } finally {
+      setLoadingDeudas(false);
     }
   };
+
+  useEffect(() => {
+    fetchDeudas();
+  }, [user]);
+
+  // 🔹 Registrar pago
+  const registrarPago = async (payload) => {
+    try {
+      const { data } = await axios.post(
+        "http://localhost:8000/deudas/registrar-pago",
+        payload,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      await fetchDeudas();
+      return data;
+    } catch (error) {
+      console.error("Error registrando pago:", error);
+      throw error;
+    }
+  };
+
+  // 🔹 Confirmar impresión y generar deuda
+  const handleConfirmarImpresion = async () => {
+    if (totalExceso <= 0 || !user?.id) return;
+
+    try {
+      await axios.post("http://localhost:8000/deudas/crear-exceso", {
+        usuario_id: user.id,
+        monto: totalExceso,
+        tipo: "diaria",
+      });
+      await fetchDeudas();
+    } catch (err) {
+      console.error("Error creando deuda por exceso:", err);
+    }
+  };
+
+  if (!user) return <p>Cargando usuario...</p>;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 p-4">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-md p-4 rounded-lg flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            MegaPrint
-          </h1>
-          {user && (
-            <p className="text-gray-600 dark:text-gray-300 mt-1">
-              {user.username}
-            </p>
-          )}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">MegaPrint</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">{user.username}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setDarkMode(!darkMode)}
             className="bg-gray-200 dark:bg-gray-700 p-2 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600"
           >
-            {darkMode ? (
-              <FaSun className="text-yellow-400" />
-            ) : (
-              <FaMoon className="text-gray-800 dark:text-white" />
-            )}
+            {darkMode ? <FaSun className="text-yellow-400" /> : <FaMoon className="text-gray-800 dark:text-white" />}
           </button>
           <button
             onClick={logout}
@@ -132,9 +132,9 @@ export default function VendedoraDashboard({ usuarioId }) {
           ⚠️ YA CONSUMISTE TUS {LIMITE_DIARIO} IMPRESIONES GRATIS ⚠️
         </div>
       )}
-      {costoExtra > 0 && (
+      {totalExceso > 0 && (
         <div className="p-4 bg-red-500 text-white font-bold text-center shadow-md rounded-lg mb-4">
-          Costo extra: ${costoExtra.toFixed(2)}
+          Costo extra: ${totalExceso.toFixed(2)}
         </div>
       )}
 
@@ -143,62 +143,38 @@ export default function VendedoraDashboard({ usuarioId }) {
         <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 flex items-center gap-4">
           <FaPrint className="text-4xl text-blue-500" />
           <div>
-            <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-1">
-              Volantes disponibles
-            </h2>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              {cantidadVolantes}
-            </p>
+            <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-1">Volantes disponibles</h2>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">{cantidadVolantes}</p>
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 flex items-center gap-4">
           <FaFileAlt className="text-4xl text-yellow-500" />
           <div>
-            <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-1">
-              Pagos pendientes
-            </h2>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              {deudas.length}
-            </p>
+            <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-1">Pagos pendientes</h2>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">{deudas.length}</p>
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 text-center">
-          <p className="font-semibold text-gray-700 dark:text-gray-200 mb-1">
-            Costo por página extra
-          </p>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">
-            ${COSTO_EXTRA.toFixed(2)}
-          </p>
+          <p className="font-semibold text-gray-700 dark:text-gray-200 mb-1">Costo por página extra</p>
+          <p className="text-xl font-bold text-gray-900 dark:text-white">${COSTO_EXTRA.toFixed(2)}</p>
         </div>
       </main>
 
-      {/* Últimos volantes */}
+      {/* Volantes */}
       <section className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-6">
         <VendedoraVolantes
           darkMode={darkMode}
           setCantidadVolantes={setCantidadVolantes}
           setTotalHoy={setTotalHoy}
           setTotalSemana={setTotalSemana}
-          setCostoExtra={setCostoExtra}
-          limits={{
-            diario: LIMITE_DIARIO,
-            semanal: LIMITE_SEMANAL,
-            costoExcedente: COSTO_EXTRA,
-          }}
+          limits={{ diario: LIMITE_DIARIO, semanal: LIMITE_SEMANAL, costoExcedente: COSTO_EXTRA }}
+          onConfirmarImpresion={handleConfirmarImpresion}
         />
       </section>
 
-      {/* Mis Deudas */}
+      {/* Deudas */}
       <section className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
-        <VendedoraDeudas
-          deudas={deudas}
-          onRegistrarPago={registrarPago}
-          excesoDiario={excesoDiario}
-          excesoSemanal={excesoSemanal}
-          autoOpenModal={autoOpenModal}
-          setAutoOpenModal={setAutoOpenModal}
-          costoExcedente={COSTO_EXTRA} // <-- se agrega esta prop
-        />
+        <VendedoraDeudas deudas={deudas} onRegistrarPago={registrarPago} loading={loadingDeudas} />
       </section>
     </div>
   );
