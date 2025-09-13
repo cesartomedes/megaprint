@@ -1,10 +1,12 @@
 # routes/deudas.py
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter,  UploadFile, File, Form, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from database import get_db
 from models import Deuda, Vendedora
-
+import shutil
+from datetime import datetime
+import os
 router = APIRouter()
 
 @router.get("/deudas")
@@ -87,3 +89,57 @@ def obtener_deudas_usuario(usuario_id: int, db: Session = Depends(get_db)):
         "total_deuda": float(total_deuda),
         "deudas": resultado
     }
+    
+UPLOAD_DIR = "uploads/comprobantes"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@router.post("/registrar-pago")
+async def registrar_pago(
+    deuda_id: int = Form(...),
+    banco: str = Form(...),
+    referencia: str = Form(...),
+    comprobante: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    # Buscar la deuda
+    deuda = db.query(Deuda).filter(Deuda.id == deuda_id).first()
+    if not deuda:
+        raise HTTPException(status_code=404, detail="Deuda no encontrada")
+
+    # Guardar archivo comprobante
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"{deuda_id}_{timestamp}_{comprobante.filename}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(comprobante.file, buffer)
+
+    # Actualizar deuda
+    deuda.metodo = banco
+    deuda.referencia = referencia
+    deuda.capture_url = file_path
+    deuda.estado = "pendiente_verificacion"  # 👈 pasa a estado intermedio
+    db.commit()
+    db.refresh(deuda)
+
+    return {"message": "Pago registrado correctamente", "deuda": deuda.id}
+
+@router.post("/aprobar-pago/{deuda_id}")
+def aprobar_pago(deuda_id: int, db: Session = Depends(get_db)):
+    """
+    Endpoint para que un admin apruebe un pago y cambie
+    el estado de la deuda a 'pagado'.
+    """
+    deuda = db.query(Deuda).filter(Deuda.id == deuda_id).first()
+    if not deuda:
+        raise HTTPException(status_code=404, detail="Deuda no encontrada")
+    
+    if deuda.estado != "pendiente_verificacion":
+        raise HTTPException(status_code=400, detail="La deuda no está en estado pendiente de verificación")
+
+    # Cambiar estado a pagado
+    deuda.estado = "pagado"
+    db.commit()
+    db.refresh(deuda)
+
+    return {"message": f"Deuda {deuda_id} aprobada correctamente", "deuda_id": deuda.id}
