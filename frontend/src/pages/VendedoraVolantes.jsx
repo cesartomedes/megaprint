@@ -43,20 +43,26 @@ export default function VendedoraVolantes({
 
         // Conteos diarios
         const today = new Date().toISOString().split("T")[0];
-        const savedDiarios = JSON.parse(localStorage.getItem(`conteos_diarios_${user.id}`));
-        const diarios = savedDiarios && savedDiarios.fecha === today
-          ? savedDiarios.conteos
-          : Object.fromEntries(data.map((v) => [v.id, 0]));
+        const savedDiarios = JSON.parse(
+          localStorage.getItem(`conteos_diarios_${user.id}`)
+        );
+        const diarios =
+          savedDiarios && savedDiarios.fecha === today
+            ? savedDiarios.conteos
+            : Object.fromEntries(data.map((v) => [v.id, 0]));
         setConteosDiarios(diarios);
 
         // Conteos semanales
         const startOfWeek = new Date();
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
         const weekKey = startOfWeek.toISOString().split("T")[0];
-        const savedSemanales = JSON.parse(localStorage.getItem(`conteos_semanales_${user.id}`));
-        const semanales = savedSemanales && savedSemanales.fecha === weekKey
-          ? savedSemanales.conteos
-          : Object.fromEntries(data.map((v) => [v.id, 0]));
+        const savedSemanales = JSON.parse(
+          localStorage.getItem(`conteos_semanales_${user.id}`)
+        );
+        const semanales =
+          savedSemanales && savedSemanales.fecha === weekKey
+            ? savedSemanales.conteos
+            : Object.fromEntries(data.map((v) => [v.id, 0]));
         setConteosSemanales(semanales);
 
         setLoading(false);
@@ -100,7 +106,7 @@ export default function VendedoraVolantes({
   const registrarImpresion = async (volanteId, cantidad = 1) => {
     if (!user || !user.id) return;
     try {
-      await axios.post("http://localhost:8000/impresiones/", {
+      await axios.post("http://localhost:8000/impresiones/impresiones/", {
         usuario_id: user.id,
         volante_id: volanteId,
         fecha: new Date().toISOString().split("T")[0],
@@ -114,8 +120,14 @@ export default function VendedoraVolantes({
 
   // 🔹 Incrementar / decrementar badge
   const handleIncrementBadge = (volanteId, cantidad = 1) => {
-    setConteosDiarios((prev) => ({ ...prev, [volanteId]: (prev[volanteId] || 0) + cantidad }));
-    setConteosSemanales((prev) => ({ ...prev, [volanteId]: (prev[volanteId] || 0) + cantidad }));
+    setConteosDiarios((prev) => ({
+      ...prev,
+      [volanteId]: (prev[volanteId] || 0) + cantidad,
+    }));
+    setConteosSemanales((prev) => ({
+      ...prev,
+      [volanteId]: (prev[volanteId] || 0) + cantidad,
+    }));
     setHaySeleccion(true);
   };
 
@@ -124,16 +136,29 @@ export default function VendedoraVolantes({
     const currentSemanal = conteosSemanales[volanteId] || 0;
     if (currentDiario === 0) return;
     setConteosDiarios({ ...conteosDiarios, [volanteId]: currentDiario - 1 });
-    setConteosSemanales({ ...conteosSemanales, [volanteId]: currentSemanal - 1 });
+    setConteosSemanales({
+      ...conteosSemanales,
+      [volanteId]: currentSemanal - 1,
+    });
     setAnimarBadge((prev) => ({ ...prev, [volanteId]: true }));
-    setTimeout(() => setAnimarBadge((prev) => ({ ...prev, [volanteId]: false })), 300);
+    setTimeout(
+      () => setAnimarBadge((prev) => ({ ...prev, [volanteId]: false })),
+      300
+    );
   };
 
   // 🔹 Totales y costo extra
   const totalHoy = Object.values(conteosDiarios).reduce((a, b) => a + b, 0);
-  const totalSemana = Object.values(conteosSemanales).reduce((a, b) => a + b, 0);
-  const extraDiario = totalHoy > LIMITE_DIARIO ? (totalHoy - LIMITE_DIARIO) * COSTO_EXTRA : 0;
-  const extraSemanal = totalSemana > LIMITE_SEMANAL ? (totalSemana - LIMITE_SEMANAL) * COSTO_EXTRA : 0;
+  const totalSemana = Object.values(conteosSemanales).reduce(
+    (a, b) => a + b,
+    0
+  );
+  const extraDiario =
+    totalHoy > LIMITE_DIARIO ? (totalHoy - LIMITE_DIARIO) * COSTO_EXTRA : 0;
+  const extraSemanal =
+    totalSemana > LIMITE_SEMANAL
+      ? (totalSemana - LIMITE_SEMANAL) * COSTO_EXTRA
+      : 0;
   const costoExtraModal = extraDiario + extraSemanal;
 
   // 🔹 Mantener actualizado el costo extra si cambian los límites o los conteos
@@ -146,15 +171,23 @@ export default function VendedoraVolantes({
     if (!volantes.length) return;
 
     const totalHoy = Object.values(conteosDiarios).reduce((a, b) => a + b, 0);
-    const totalSemana = Object.values(conteosSemanales).reduce((a, b) => a + b, 0);
-    const extraDiario = totalHoy > LIMITE_DIARIO ? (totalHoy - LIMITE_DIARIO) * COSTO_EXTRA : 0;
-    const extraSemanal = totalSemana > LIMITE_SEMANAL ? (totalSemana - LIMITE_SEMANAL) * COSTO_EXTRA : 0;
+    const totalSemana = Object.values(conteosSemanales).reduce(
+      (a, b) => a + b,
+      0
+    );
+    const extraDiario =
+      totalHoy > LIMITE_DIARIO ? (totalHoy - LIMITE_DIARIO) * COSTO_EXTRA : 0;
+    const extraSemanal =
+      totalSemana > LIMITE_SEMANAL
+        ? (totalSemana - LIMITE_SEMANAL) * COSTO_EXTRA
+        : 0;
 
     setCostoExtra(extraDiario + extraSemanal);
   }, [limits, conteosDiarios, conteosSemanales, volantes, setCostoExtra]);
 
   if (loading) return <p className="p-4">Cargando volantes...</p>;
-  if (!volantes.length) return <p className="p-4">No tienes volantes asignados.</p>;
+  if (!volantes.length)
+    return <p className="p-4">No tienes volantes asignados.</p>;
 
   return (
     <>
@@ -223,7 +256,9 @@ export default function VendedoraVolantes({
 
               <div
                 className={`p-5 text-center font-semibold text-lg ${
-                  darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-900"
+                  darkMode
+                    ? "bg-gray-700 text-white"
+                    : "bg-gray-100 text-gray-900"
                 }`}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -287,11 +322,19 @@ export default function VendedoraVolantes({
               darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
             }`}
           >
-            <h2 className="text-xl font-bold mb-4">Confirmar Orden de Impresión</h2>
+            <h2 className="text-xl font-bold mb-4">
+              Confirmar Orden de Impresión
+            </h2>
 
             <div className="mb-3 text-left">
-              <p>Límite Diario: {totalHoy} / {LIMITE_DIARIO} ({((totalHoy/LIMITE_DIARIO)*100).toFixed(1)}%)</p>
-              <p>Límite Semanal: {totalSemana} / {LIMITE_SEMANAL} ({((totalSemana/LIMITE_SEMANAL)*100).toFixed(1)}%)</p>
+              <p>
+                Límite Diario: {totalHoy} / {LIMITE_DIARIO} (
+                {((totalHoy / LIMITE_DIARIO) * 100).toFixed(1)}%)
+              </p>
+              <p>
+                Límite Semanal: {totalSemana} / {LIMITE_SEMANAL} (
+                {((totalSemana / LIMITE_SEMANAL) * 100).toFixed(1)}%)
+              </p>
               <p>Costo por página extra: ${costoExtraModal.toFixed(2)}</p>
             </div>
 
@@ -307,7 +350,8 @@ export default function VendedoraVolantes({
                 onClick={async () => {
                   for (const volante of volantes) {
                     const cantidad = conteosDiarios[volante.id] || 0;
-                    if (cantidad > 0) await registrarImpresion(volante.id, cantidad);
+                    if (cantidad > 0)
+                      await registrarImpresion(volante.id, cantidad);
                   }
                   alert("✅ Impresión confirmada");
                   setShowConfirm(false);
