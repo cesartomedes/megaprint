@@ -11,13 +11,13 @@ dayjs.extend(timezone);
 export default function AdminImpresiones() {
   const [impresiones, setImpresiones] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(""); // Puedes usarlo para mostrar errores si quieres
+  const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const itemsPerPage = 20;
 
-  const LIMITE_DIARIO = 30;
-  const LIMITE_SEMANAL = 150;
+  const LIMITE_DIARIO = 50;   // Ajuste del límite diario
+  const LIMITE_SEMANAL = 150; // Límite semanal
 
   const fetchImpresiones = useCallback(async () => {
     try {
@@ -25,14 +25,16 @@ export default function AdminImpresiones() {
       setError("");
 
       const response = await axios.get(
-        "http://localhost:8000/impresiones/impresiones/",
+        "http://localhost:8000/impresiones/impresiones/"
       );
+
       const datos = [];
       const acumulados = {};
 
       response.data.forEach((vendedora) => {
         const nombre = vendedora.usuario.nombre;
 
+        // Conteos diarios
         vendedora.conteosDiarios.forEach((imp) => {
           const key = `${nombre}-Diaria`;
           if (!acumulados[key]) acumulados[key] = 0;
@@ -47,6 +49,7 @@ export default function AdminImpresiones() {
           });
         });
 
+        // Conteos semanales
         vendedora.conteosSemanales.forEach((imp) => {
           const key = `${nombre}-Semanal`;
           if (!acumulados[key]) acumulados[key] = 0;
@@ -63,13 +66,15 @@ export default function AdminImpresiones() {
       });
 
       datos.sort(
-        (a, b) => dayjs(b.creado_en).valueOf() - dayjs(a.creado_en).valueOf(),
+        (a, b) => dayjs(b.creado_en).valueOf() - dayjs(a.creado_en).valueOf()
       );
 
+      // Calcular exceso para cada impresión usando acumulado y límite
       const datosConExcedido = datos.map((imp) => {
         const key = `${imp.vendedora}-${imp.tipo}`;
         const limite = imp.tipo === "Diaria" ? LIMITE_DIARIO : LIMITE_SEMANAL;
-        return { ...imp, excedido: acumulados[key] > limite };
+        const exceso = acumulados[key] > limite ? acumulados[key] - limite : 0;
+        return { ...imp, excedido: exceso > 0, exceso };
       });
 
       setImpresiones(datosConExcedido);
@@ -92,8 +97,8 @@ export default function AdminImpresiones() {
       (imp) =>
         imp.vendedora.toLowerCase().includes(searchTerm.toLowerCase()) ||
         imp.volante.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        imp.tipo.toLowerCase().includes(searchTerm.toLowerCase()),
-    ).length / itemsPerPage,
+        imp.tipo.toLowerCase().includes(searchTerm.toLowerCase())
+    ).length / itemsPerPage
   );
 
   const paginatedData = impresiones
@@ -101,7 +106,7 @@ export default function AdminImpresiones() {
       (imp) =>
         imp.vendedora.toLowerCase().includes(searchTerm.toLowerCase()) ||
         imp.volante.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        imp.tipo.toLowerCase().includes(searchTerm.toLowerCase()),
+        imp.tipo.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -110,9 +115,7 @@ export default function AdminImpresiones() {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
   if (loading)
-    return (
-      <p className="text-white text-center mt-4">Cargando impresiones...</p>
-    );
+    return <p className="text-white text-center mt-4">Cargando impresiones...</p>;
 
   if (impresiones.length === 0)
     return (
@@ -145,7 +148,7 @@ export default function AdminImpresiones() {
                   <th key={col} className="px-4 py-2 border font-medium">
                     {col}
                   </th>
-                ),
+                )
               )}
             </tr>
           </thead>
@@ -170,7 +173,7 @@ export default function AdminImpresiones() {
                   {imp.vendedora}
                   {imp.excedido && (
                     <span className="ml-2 px-2 py-0.5 text-xs font-bold rounded bg-red-200 dark:bg-red-700 text-red-700 dark:text-white">
-                      {imp.total} excedió
+                      {imp.exceso} excedió
                     </span>
                   )}
                 </td>
@@ -208,7 +211,7 @@ export default function AdminImpresiones() {
               </span>
               {imp.excedido && (
                 <span className="px-2 py-0.5 text-xs font-bold rounded bg-red-200 dark:bg-red-700 text-red-700 dark:text-white">
-                  {imp.total} excedió
+                  {imp.exceso} excedió
                 </span>
               )}
             </div>

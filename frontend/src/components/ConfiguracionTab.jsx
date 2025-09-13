@@ -31,7 +31,7 @@ export default function ConfiguracionTab() {
 
   const handleSave = async () => {
     try {
-      const res = await axios.post(
+      const res = await axios.put(
         "http://localhost:8000/config_helper/limits",
         limits,
       );
@@ -79,9 +79,9 @@ export default function ConfiguracionTab() {
       <div className="flex items-center gap-3 mt-4">
         <input
           type="checkbox"
-          checked={limits.applyToAll ?? false}
+          checked={Boolean(limits.applyToAll)}
           onChange={(e) =>
-            setLimits({ ...limits, applyToAll: e.target.checked })
+            setLimits({ ...limits, applyToAll: e.target.checked ? 1 : 0 })
           }
           className="h-5 w-5"
         />

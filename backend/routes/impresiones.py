@@ -4,6 +4,7 @@ from sqlalchemy import func
 from datetime import date, timedelta, datetime
 from database import get_db
 from models import Impresion, Volante, Vendedora, Deuda
+from routes.config_helper import get_limits
 from schemas import ImpresionCreate
 
 
@@ -97,6 +98,13 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
 
     nuevo_total_hoy = total_hoy + impresion.cantidad_impresa
     nuevo_total_semana = total_semana + impresion.cantidad_impresa
+    
+    # ── Obtener límites dinámicos desde la base de datos
+    limites = get_limits(db)
+    LIMITE_DIARIO = limites.get("diario", 30)
+    LIMITE_SEMANAL = limites.get("semanal", 150)
+    COSTO_EXTRA = limites.get("costoExcedente", 0.5)
+
 
     # ── Calcular excesos
     exceso_diario = max(nuevo_total_hoy - LIMITE_DIARIO, 0)
