@@ -31,7 +31,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     # Ingresos del mes actual
     ingresos_mes_total = (
         db.query(func.coalesce(func.sum(Pago.monto), 0))
-        .filter(Pago.estado == "completado")
+        .filter(Pago.estado == "completado")   # 👈 este es clave
         .filter(Pago.fecha.isnot(None))
         .filter(extract("month", Pago.fecha) == now.month)
         .filter(extract("year", Pago.fecha) == now.year)

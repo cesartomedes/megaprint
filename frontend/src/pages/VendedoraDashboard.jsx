@@ -11,7 +11,7 @@ export default function VendedoraDashboard() {
   // Estados
   const [limits, setLimits] = useState({});
   const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem("darkMode") === "true"
+    () => localStorage.getItem("darkMode") === "true",
   );
 
   const [notificaciones, setNotificaciones] = useState([]);
@@ -33,7 +33,7 @@ export default function VendedoraDashboard() {
     const fetchLimits = async () => {
       try {
         const res = await axios.get(
-          "http://localhost:8000/config_helper/limits"
+          "http://localhost:8000/config_helper/limits",
         );
         setLimits(res.data);
       } catch (err) {
@@ -61,7 +61,7 @@ export default function VendedoraDashboard() {
     setLoadingDeudas(true);
     try {
       const res = await axios.get(
-        `http://localhost:8000/deudas/deudas/${user.id}`
+        `http://localhost:8000/deudas/deudas/${user.id}`,
       );
       setDeudas(Array.isArray(res.data.deudas) ? res.data.deudas : []);
     } catch (err) {
@@ -86,7 +86,7 @@ export default function VendedoraDashboard() {
     if (!user?.id) return;
     try {
       const res = await axios.get(
-        `http://localhost:8000/notificaciones/${user.id}`
+        `http://localhost:8000/notificaciones/${user.id}`,
       );
       setNotificaciones(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
@@ -98,7 +98,7 @@ export default function VendedoraDashboard() {
     try {
       await axios.patch(`http://localhost:8000/notificaciones/${id}/leer`);
       setNotificaciones((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, leido: true } : n))
+        prev.map((n) => (n.id === id ? { ...n, leido: true } : n)),
       );
     } catch (err) {
       console.error("Error marcar leida:", err);
@@ -111,7 +111,7 @@ export default function VendedoraDashboard() {
       const { data } = await axios.post(
         "http://localhost:8000/deudas/registrar-pago",
         payload,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        { headers: { "Content-Type": "multipart/form-data" } },
       );
       await fetchDeudas();
       return data;
@@ -266,7 +266,7 @@ export default function VendedoraDashboard() {
       </header>
 
       {/* Metrics */}
-      <main className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <main className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 flex items-center gap-4">
           <FaPrint className="text-4xl text-blue-500" />
           <div>
@@ -288,14 +288,6 @@ export default function VendedoraDashboard() {
               {deudas.length}
             </p>
           </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 text-center">
-          <p className="font-semibold text-gray-700 dark:text-gray-200 mb-1">
-            Costo por página extra
-          </p>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">
-            ${COSTO_EXTRA.toFixed(2)}
-          </p>
         </div>
       </main>
 

@@ -41,8 +41,8 @@ export default function PagosTab() {
         vendedoras.map((v) =>
           v.vendedora_id === selectedVendedora.vendedora_id
             ? { ...v, deudas: actualizarDeudas(v.deudas) }
-            : v
-        )
+            : v,
+        ),
       );
     } catch (error) {
       console.error(error);
@@ -58,7 +58,7 @@ export default function PagosTab() {
 
       const actualizarDeudas = (deudas) =>
         deudas.map((d) =>
-          d.id === deudaId ? { ...d, estado: "rechazado" } : d
+          d.id === deudaId ? { ...d, estado: "rechazado" } : d,
         );
 
       setSelectedVendedora({
@@ -70,8 +70,8 @@ export default function PagosTab() {
         vendedoras.map((v) =>
           v.vendedora_id === selectedVendedora.vendedora_id
             ? { ...v, deudas: actualizarDeudas(v.deudas) }
-            : v
-        )
+            : v,
+        ),
       );
     } catch (error) {
       console.error(error);
@@ -100,7 +100,9 @@ export default function PagosTab() {
       <h2 className="text-3xl font-bold mb-6">Gestión de Pagos</h2>
 
       {loading ? (
-        <p className="text-gray-500 dark:text-gray-300">Cargando vendedoras...</p>
+        <p className="text-gray-500 dark:text-gray-300">
+          Cargando vendedoras...
+        </p>
       ) : (
         <table className="w-full border text-center bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden shadow-lg">
           <thead className="bg-gray-100 dark:bg-gray-700">
@@ -144,7 +146,9 @@ export default function PagosTab() {
               ×
             </button>
 
-            <h3 className="font-bold text-2xl mb-2">{selectedVendedora.nombre}</h3>
+            <h3 className="font-bold text-2xl mb-2">
+              {selectedVendedora.nombre}
+            </h3>
 
             <div className="mb-4 flex gap-6">
               <p className="font-semibold">
@@ -192,8 +196,8 @@ export default function PagosTab() {
                         d.estado === "pendiente_verificacion"
                           ? "bg-yellow-100 dark:bg-yellow-700"
                           : d.estado === "pagado"
-                          ? "bg-green-100 dark:bg-green-700"
-                          : "bg-red-100 dark:bg-red-700"
+                            ? "bg-green-100 dark:bg-green-700"
+                            : "bg-red-100 dark:bg-red-700"
                       }
                     >
                       <td className="p-2 border">{d.id}</td>
@@ -206,7 +210,7 @@ export default function PagosTab() {
                             href={`http://127.0.0.1:8000/${d.capture_url}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
+                            className="text-blue-600 dark:text-white hover:underline"
                           >
                             Ver comprobante
                           </a>
