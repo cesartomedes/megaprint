@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Numeric, TIMESTAMP, ForeignKey, func
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Numeric, TIMESTAMP, ForeignKey, func, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 import datetime
 
@@ -125,3 +125,13 @@ class Configuracion(Base):
     clave = Column(String, unique=True, index=True, nullable=False)
     valor = Column(String, nullable=False)
     tipo = Column(String, nullable=False)  # "int", "float", "str"
+    
+class Notificacion(Base):
+    __tablename__ = "notificaciones"
+    id = Column(Integer, primary_key=True, index=True)
+    vendedora_id = Column(Integer, ForeignKey("vendedoras.id"), nullable=False)
+    mensaje = Column(String, nullable=False)
+    leido = Column(Boolean, default=False)
+    fecha = Column(DateTime, default=datetime.datetime.utcnow)
+
+    vendedora = relationship("Vendedora", backref="notificaciones")
