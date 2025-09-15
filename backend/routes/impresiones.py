@@ -1,23 +1,35 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
+from database import get_db
+from models import Impresion, Volante, Vendedora, Deuda
+from routes.config_helper import get_limits
+from schemas import ImpresionCreate
+import win32api
+import threading
+import os
+
+router = APIRouter()
+
+# ── Función para crear o actualizar deuda
+# ── Función para crear o actualizar deuda
+import os
+import threading
+import win32api
+import win32print
+from datetime import date, timedelta
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import func
 from database import get_db
 from models import Impresion, Volante, Vendedora, Deuda
 from routes.config_helper import get_limits
 from schemas import ImpresionCreate
 
-
 router = APIRouter()
 
-# # ── Configuración global
-# LIMITE_DIARIO = 30
-# LIMITE_SEMANAL = 150
-# COSTO_EXTRA = 0.5
-
 # ── Función para crear o actualizar deuda
-# ── Función para crear o actualizar deuda
-# ── Función para crear o actualizar deuda (revisada)
 def crear_o_actualizar_deuda(
     usuario_id: int,
     monto_extra: float,
@@ -31,7 +43,6 @@ def crear_o_actualizar_deuda(
     if monto_extra <= 0:
         return None
 
-    # Buscar deuda pendiente del mismo tipo y día/semana
     if tipo == "diaria":
         deuda = db.query(Deuda).filter(
             Deuda.vendedora_id == usuario_id,
@@ -49,7 +60,6 @@ def crear_o_actualizar_deuda(
         ).first()
 
     if deuda:
-        # Reemplazamos el monto y cantidad excedida, NO sumamos
         deuda.monto = monto_extra
         deuda.cantidad_excedida = cantidad_excedida
         deuda.impresion_id = impresion_id
@@ -73,46 +83,47 @@ def crear_o_actualizar_deuda(
     db.refresh(deuda)
     return deuda
 
+# ── Worker de impresión
+def _print_worker(file_path: str, printer_name: str = "HPI21F282"):
+    try:
+        if not os.path.exists(file_path):
+            print(f"❌ El archivo {file_path} no existe")
+            return
+        win32api.ShellExecute(0, "print", file_path, f'/d:"{printer_name}"', ".", 0)
+        print(f"✅ Archivo {file_path} enviado a {printer_name}")
+    except Exception as e:
+        print(f"❌ Error al imprimir {file_path}: {e}")
 
-
-# ── Crear impresión (revisada)
+# ── Endpoint crear impresión
 @router.post("/impresiones/")
 def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
     hoy = impresion.fecha
     inicio_semana = hoy - timedelta(days=hoy.weekday())
 
-    # ── Total de impresiones hoy y esta semana (todas, sin filtrar volante)
     total_hoy = (
         db.query(func.sum(Impresion.cantidad_impresa))
-        .filter(Impresion.usuario_id == impresion.usuario_id,
-                Impresion.fecha == hoy)
+        .filter(Impresion.usuario_id == impresion.usuario_id, Impresion.fecha == hoy)
         .scalar() or 0
     )
-
     total_semana = (
         db.query(func.sum(Impresion.cantidad_impresa))
-        .filter(Impresion.usuario_id == impresion.usuario_id,
-                Impresion.fecha >= inicio_semana)
+        .filter(Impresion.usuario_id == impresion.usuario_id, Impresion.fecha >= inicio_semana)
         .scalar() or 0
     )
 
     nuevo_total_hoy = total_hoy + impresion.cantidad_impresa
     nuevo_total_semana = total_semana + impresion.cantidad_impresa
-    
-    # ── Obtener límites dinámicos desde la base de datos
+
     limites = get_limits(db)
     LIMITE_DIARIO = limites.get("diario", 30)
     LIMITE_SEMANAL = limites.get("semanal", 150)
     COSTO_EXTRA = limites.get("costoExcedente", 0.5)
 
-
-    # ── Calcular excesos
     exceso_diario = max(nuevo_total_hoy - LIMITE_DIARIO, 0)
     exceso_semanal = max(nuevo_total_semana - LIMITE_SEMANAL, 0)
     exceso_total = max(exceso_diario, exceso_semanal)
     costo_extra = exceso_total * COSTO_EXTRA if exceso_total > 0 else 0
 
-    # ── Guardar la impresión
     nueva_impresion = Impresion(
         usuario_id=impresion.usuario_id,
         volante_id=impresion.volante_id,
@@ -125,7 +136,14 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(nueva_impresion)
 
-    # ── Crear o actualizar deuda solo con el exceso actual
+    # ── Enviar a imprimir
+    volante = db.query(Volante).filter(Volante.id == impresion.volante_id).first()
+    if volante and volante.archivo:
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # ruta a backend/
+        file_path = os.path.join(BASE_DIR, "uploads", "catalogos", "pdf", volante.archivo)
+        threading.Thread(target=_print_worker, args=(file_path,), daemon=True).start()
+
+    # ── Crear o actualizar deuda
     if exceso_diario > 0:
         crear_o_actualizar_deuda(
             usuario_id=impresion.usuario_id,
@@ -137,7 +155,6 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
             impresion_id=nueva_impresion.id,
             cantidad_excedida=exceso_diario
         )
-
     if exceso_semanal > 0:
         crear_o_actualizar_deuda(
             usuario_id=impresion.usuario_id,
@@ -159,7 +176,7 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
         "exceso_diario": exceso_diario,
         "exceso_semanal": exceso_semanal,
         "costo_extra": float(costo_extra),
-        "excedido": True if nuevo_total_hoy > LIMITE_DIARIO else False,
+        "excedido": nuevo_total_hoy > LIMITE_DIARIO,
         "impresiones_gratis_restantes": max(LIMITE_DIARIO - total_hoy, 0),
         "impresiones_extras": exceso_diario,
         "impresion": {
@@ -171,7 +188,7 @@ def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
         }
     }
 
-# ── Obtener todas las impresiones por vendedora
+# ── Obtener todas las impresiones
 @router.get("/impresiones/")
 def obtener_todas_impresiones(db: Session = Depends(get_db)):
     vendedoras = db.query(Vendedora).all()
@@ -228,8 +245,7 @@ def obtener_todas_impresiones(db: Session = Depends(get_db)):
 
     return resultado
 
-
-# ── Obtener conteos diarios y semanales por usuario
+# ── Obtener conteos por usuario
 @router.get("/impresiones/{usuario_id}")
 def obtener_conteos(usuario_id: int, db: Session = Depends(get_db)):
     hoy = date.today()

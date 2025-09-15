@@ -189,7 +189,7 @@ export default function CatalogoTab() {
                 </div>
                 <div className="mt-4 flex gap-3">
                   <a
-                    href={pdf.url}
+                    href={`http://127.0.0.1:8000${pdf.url}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 text-center bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"

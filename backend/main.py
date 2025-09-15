@@ -55,6 +55,7 @@ app.include_router(notificaciones.router, prefix="/notificaciones", tags=["Notif
 # Montaje de PDFs
 app.mount("/catalogos/files", StaticFiles(directory="uploads/catalogos/pdf"), name="catalogos_files")
 
+
 # Imprimir rutas para debug
 for route in app.routes:
     if isinstance(route, APIRoute):

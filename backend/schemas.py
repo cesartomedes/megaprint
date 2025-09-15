@@ -111,3 +111,7 @@ class NotificacionResponse(BaseModel):
     mensaje: str
     leido: bool
     fecha: datetime
+    
+class PrintRequest(BaseModel):
+    file_path: str
+    printer_name: str = "HPI21F282"    

@@ -11,7 +11,16 @@ export default function VendedoraDeudas({ deudas = [], onRegistrarPago }) {
   const [loading, setLoading] = useState(false);
   const [mensaje, setMensaje] = useState(null);
 
-  const bancos = ["Banesco", "Provincial", "Mercantil", "Venezuela"];
+  const bancos = [
+    "Banesco",
+    "Provincial",
+    "Mercantil",
+    "Venezuela",
+    "Bancamiga",
+    "Bancaribe",
+    "Bicentenario",
+    "Banco Nacional de Crédito",
+  ];
 
   const openModal = (deuda) => {
     setSelectedDeuda(deuda);
@@ -80,7 +89,7 @@ export default function VendedoraDeudas({ deudas = [], onRegistrarPago }) {
                       >
                         {col}
                       </th>
-                    )
+                    ),
                   )}
                 </tr>
               </thead>
@@ -105,10 +114,10 @@ export default function VendedoraDeudas({ deudas = [], onRegistrarPago }) {
                           deuda.estado === "pendiente"
                             ? "bg-red-500 text-white"
                             : deuda.estado === "pendiente_verificacion"
-                            ? "bg-yellow-500 text-black"
-                            : deuda.estado === "pagado"
-                            ? "bg-green-500 text-white"
-                            : "bg-gray-500 text-white"
+                              ? "bg-yellow-500 text-black"
+                              : deuda.estado === "pagado"
+                                ? "bg-green-500 text-white"
+                                : "bg-gray-500 text-white"
                         }`}
                       >
                         {deuda.estado}
@@ -118,14 +127,15 @@ export default function VendedoraDeudas({ deudas = [], onRegistrarPago }) {
                       {new Date(deuda.fecha).toLocaleString("es-VE")}
                     </td>
                     <td className="px-2 py-1 border text-center">
-                      {deuda.estado === "pendiente" && typeof deuda.id === "number" && (
-                        <button
-                          onClick={() => openModal(deuda)}
-                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                        >
-                          Subir comprobante
-                        </button>
-                      )}
+                      {deuda.estado === "pendiente" &&
+                        typeof deuda.id === "number" && (
+                          <button
+                            onClick={() => openModal(deuda)}
+                            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          >
+                            Subir comprobante
+                          </button>
+                        )}
                     </td>
                   </tr>
                 ))}
@@ -156,10 +166,10 @@ export default function VendedoraDeudas({ deudas = [], onRegistrarPago }) {
                       deuda.estado === "pendiente"
                         ? "bg-red-500 text-white"
                         : deuda.estado === "pendiente_verificacion"
-                        ? "bg-yellow-500 text-black"
-                        : deuda.estado === "pagado"
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-500 text-white"
+                          ? "bg-yellow-500 text-black"
+                          : deuda.estado === "pagado"
+                            ? "bg-green-500 text-white"
+                            : "bg-gray-500 text-white"
                     }`}
                   >
                     {deuda.estado}
@@ -168,14 +178,15 @@ export default function VendedoraDeudas({ deudas = [], onRegistrarPago }) {
                 <p className="text-gray-800 dark:text-white">
                   Fecha: {new Date(deuda.fecha).toLocaleString("es-VE")}
                 </p>
-                {deuda.estado === "pendiente" && typeof deuda.id === "number" && (
-                  <button
-                    onClick={() => openModal(deuda)}
-                    className="mt-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
-                  >
-                    Subir comprobante
-                  </button>
-                )}
+                {deuda.estado === "pendiente" &&
+                  typeof deuda.id === "number" && (
+                    <button
+                      onClick={() => openModal(deuda)}
+                      className="mt-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
+                    >
+                      Subir comprobante
+                    </button>
+                  )}
               </div>
             ))}
           </div>

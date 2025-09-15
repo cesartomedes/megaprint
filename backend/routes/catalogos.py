@@ -21,17 +21,16 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @router.get("/general", response_model=list[CatalogoSchema])
 def get_catalogo_general(db: Session = Depends(get_db)):
     catalogos = db.query(Catalogo).filter(Catalogo.vendedora_id == None).all()
-    result = []
-    for c in catalogos:
-        result.append(
-            CatalogoSchema(
-                id=c.id,
-                nombre=c.nombre,
-                categoria=c.categoria.nombre if c.categoria else None,
-                vendedora_id=c.vendedora_id,
-                url=f"/catalogos/files/{os.path.basename(c.url)}",
-            )
+    result = [
+        CatalogoSchema(
+            id=c.id,
+            nombre=c.nombre,
+            categoria=c.categoria.nombre if c.categoria else None,
+            vendedora_id=c.vendedora_id,
+            url=f"/catalogos/files/{os.path.basename(c.url)}",
         )
+        for c in catalogos
+    ]
     return result
 
 # -------------------
@@ -42,17 +41,16 @@ def get_catalogo_vendedora(vendedora_id: int, db: Session = Depends(get_db)):
     catalogos = db.query(Catalogo).filter(
         or_(Catalogo.vendedora_id == vendedora_id, Catalogo.vendedora_id == None)
     ).all()
-    result = []
-    for c in catalogos:
-        result.append(
-            CatalogoSchema(
-                id=c.id,
-                nombre=c.nombre,
-                categoria=c.categoria.nombre if c.categoria else None,
-                vendedora_id=c.vendedora_id,
-                url=f"/catalogos/files/{os.path.basename(c.url)}",
-            )
+    result = [
+        CatalogoSchema(
+            id=c.id,
+            nombre=c.nombre,
+            categoria=c.categoria.nombre if c.categoria else None,
+            vendedora_id=c.vendedora_id,
+            url=f"/catalogos/files/{os.path.basename(c.url)}",
         )
+        for c in catalogos
+    ]
     return result
 
 # -------------------
@@ -66,29 +64,25 @@ async def upload_catalogo(
     vendedora_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
-    # Generar nombre único para evitar sobrescribir
+    # Nombre único para evitar sobrescribir
     nombre_unico = f"{uuid.uuid4().hex}_{file.filename}"
     file_path = os.path.join(UPLOAD_DIR, nombre_unico)
 
-    # Guardar archivo físicamente
+    # Guardar archivo
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Crear URL pública
-    url_publica = f"http://127.0.0.1:8000/catalogos/files/{nombre_unico}"
-
-    # Crear registro en DB
+    # Guardar solo el nombre del archivo en DB
     nuevo = Catalogo(
         nombre=nombre,
         categoria_id=categoria_id,
         vendedora_id=vendedora_id,
-        url=url_publica,
+        url=nombre_unico,
     )
     db.add(nuevo)
     db.commit()
     db.refresh(nuevo)
 
-    # Obtener nombre de categoría
     categoria = db.query(Categoria).filter(Categoria.id == categoria_id).first()
 
     return CatalogoSchema(
@@ -108,12 +102,10 @@ def eliminar_pdf(pdf_id: int, db: Session = Depends(get_db)):
     if not catalogo:
         raise HTTPException(status_code=404, detail="PDF no encontrado")
 
-    # Borrar archivo físico si existe
     file_path = os.path.join(UPLOAD_DIR, os.path.basename(catalogo.url))
     if os.path.exists(file_path):
         os.remove(file_path)
 
-    # Eliminar registro de DB
     db.delete(catalogo)
     db.commit()
     return {"msg": "PDF eliminado correctamente"}

@@ -75,7 +75,39 @@ def pagar_pago(pago_id: int, db: Session = Depends(get_db)):
     if not pago:
         raise HTTPException(status_code=404, detail="Pago no encontrado")
 
-    pago.estado = "pagado"
+    # ✅ Cambiar a "completado" para que el dashboard lo tome
+    pago.estado = "completado"
+    db.add(pago)
+
+    # Aplicar a deudas pendientes
+    deudas = (
+        db.query(Deuda)
+        .filter(Deuda.vendedora_id == pago.vendedora_id, Deuda.estado == "pendiente")
+        .order_by(Deuda.fecha.asc())
+        .all()
+    )
+
+    monto_restante = pago.monto
+    for deuda in deudas:
+        if monto_restante <= 0:
+            break
+        if monto_restante >= deuda.monto:
+            monto_restante -= deuda.monto
+            deuda.estado = "pagada"
+        else:
+            deuda.monto -= monto_restante
+            monto_restante = 0
+        db.add(deuda)
+
+    # Crear notificación
+    from models import Notificacion
+    notificacion = Notificacion(
+        vendedora_id=pago.vendedora_id,
+        mensaje=f"Tu pago de ${pago.monto} ha sido aprobado.",
+        leido=False
+    )
+    db.add(notificacion)
+
     db.commit()
     db.refresh(pago)
     return pago

@@ -9,7 +9,6 @@ import ConfiguracionTab from "./ConfiguracionTab";
 import PagosTab from "./pagos/PagosTab";
 import AdminImpresiones from "./AdminImpresiones";
 
-
 import {
   Printer,
   Users,
@@ -67,8 +66,7 @@ export default function AdminDashboard() {
     { id: "impresion", label: "Impresión (CUPS)" },
     { id: "seguridad", label: "Seguridad" },
     { id: "configuracion", label: "Configuración" },
-    { id: "admin-impresiones", label: "Historial Impresiones" }
-
+    { id: "admin-impresiones", label: "Historial Impresiones" },
   ];
 
   const [vendedoras, setVendedoras] = useState([]);
@@ -81,7 +79,7 @@ export default function AdminDashboard() {
     if (activeTab === "vendedoras") fetchVendedoras();
   }, [activeTab]);
 
- const fetchMetrics = async () => {
+  const fetchMetrics = async () => {
     try {
       const res = await axios.get("http://127.0.0.1:8000/dashboard");
       const data = res.data;
@@ -107,12 +105,12 @@ export default function AdminDashboard() {
           icon: CreditCard,
           color: "bg-yellow-500",
         },
-        {
-          title: "Ingresos del mes",
-          value: `$${data.ingresos_mes}`,
-          icon: DollarSign,
-          color: "bg-purple-500",
-        },
+        // {
+        //   title: "Ingresos del mes",
+        //   value: `$${data.ingresos_mes}`,
+        //   icon: DollarSign,
+        //   color: "bg-purple-500",
+        // },
       ]);
     } catch (err) {
       console.error("Error al traer métricas:", err);
@@ -184,7 +182,7 @@ export default function AdminDashboard() {
       </header>
 
       {/* Métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
         {metrics.map((metric) => (
           <MetricCard key={metric.title} {...metric} />
         ))}
@@ -224,7 +222,6 @@ export default function AdminDashboard() {
         {activeTab === "configuracion" && <ConfiguracionTab />}
         {activeTab === "impresion" && <ImpresionesTab />}
         {activeTab === "admin-impresiones" && <AdminImpresiones />}
-       
       </div>
     </div>
   );
