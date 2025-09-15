@@ -4,17 +4,14 @@ from sqlalchemy import extract, func
 from datetime import datetime
 
 from database import get_db
-from models import Vendedora, Pago, Impresion
+from models import Vendedora, Pago, Impresion, Deuda
 
 router = APIRouter()
-
 @router.get("/dashboard")
 def get_dashboard_stats(db: Session = Depends(get_db)):
-    """Devuelve métricas del dashboard de forma segura"""
-
     now = datetime.now()
 
-    # Vendedoras por estado
+    # Vendedoras
     aprobadas = db.query(func.count(Vendedora.id)).filter(Vendedora.estado == "aprobada").scalar() or 0
     pendientes = db.query(func.count(Vendedora.id)).filter(Vendedora.estado == "pendiente").scalar() or 0
     rechazadas = db.query(func.count(Vendedora.id)).filter(Vendedora.estado == "rechazada").scalar() or 0
@@ -28,8 +25,8 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         .scalar() or 0
     )
 
-    # Pagos pendientes
-    pagos_pendientes = db.query(func.count(Pago.id)).filter(Pago.estado == "pendiente").scalar() or 0
+    # Pagos pendientes (deudas en estado pendiente)
+    pagos_pendientes = db.query(func.count(Deuda.id)).filter(Deuda.estado == "pendiente").scalar() or 0
 
     # Ingresos del mes actual
     ingresos_mes_total = (
@@ -48,6 +45,6 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
             "rechazadas": rechazadas
         },
         "ordenes_activas": ordenes_activas,
-        "pagos_pendientes": pagos_pendientes,
+        "pagos_pendientes": pagos_pendientes,  # 👈 ahora sí
         "ingresos_mes": float(ingresos_mes_total)
     }

@@ -99,3 +99,15 @@ class LimitsUpdate(BaseModel):
 
     class Config:
         from_attributes = True
+        
+class DeudaExcesoCreate(BaseModel):
+    usuario_id: int
+    monto: float
+    tipo: str
+
+class NotificacionResponse(BaseModel):
+    id: int
+    vendedora_id: int
+    mensaje: str
+    leido: bool
+    fecha: datetime

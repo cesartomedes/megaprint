@@ -3,22 +3,27 @@ from fastapi import APIRouter,  UploadFile, File, Form, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from database import get_db
-from models import Deuda, Vendedora
+from models import Deuda, Vendedora, Notificacion
 import shutil
 from datetime import datetime
+
+
 import os
+
+UPLOAD_DIR = "uploads/comprobantes"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 router = APIRouter()
 
 @router.get("/deudas")
 def obtener_deudas(db: Session = Depends(get_db)):
-    # Traer vendedoras con deudas pendientes, sumando monto
+    # Traer vendedoras con deudas pendientes o en verificación, sumando monto
     vendedoras = db.query(
         Deuda.vendedora_id,
         Vendedora.nombre,
         func.count(Deuda.id).label("cantidad_deudas"),
         func.sum(Deuda.monto).label("total_deuda")
     ).join(Vendedora, Vendedora.id == Deuda.vendedora_id) \
-     .filter(Deuda.estado == "pendiente") \
+     .filter(Deuda.estado.in_(["pendiente", "pendiente_verificacion"])) \
      .group_by(Deuda.vendedora_id, Vendedora.nombre) \
      .all()
 
@@ -28,7 +33,7 @@ def obtener_deudas(db: Session = Depends(get_db)):
         # Detalle de deudas
         deudas_detalle = db.query(Deuda).filter(
             Deuda.vendedora_id == v.vendedora_id,
-            Deuda.estado == "pendiente"
+            Deuda.estado.in_(["pendiente", "pendiente_verificacion"])
         ).all()
 
         deudas_list = []
@@ -41,7 +46,7 @@ def obtener_deudas(db: Session = Depends(get_db)):
                 "referencia": d.referencia,
                 "capture_url": d.capture_url,
                 "estado": d.estado,
-                "fecha": str(d.fecha),
+                "fecha": d.fecha.strftime("%Y-%m-%d %H:%M:%S"),
                 "tipo": d.tipo,
                 "volante_id": d.volante_id,
                 "impresion_id": d.impresion_id
@@ -49,13 +54,14 @@ def obtener_deudas(db: Session = Depends(get_db)):
 
         resultado.append({
             "vendedora_id": v.vendedora_id,
-            "nombre": v.nombre,  # <-- aquí agregamos el nombre
+            "nombre": v.nombre,
             "cantidad_deudas": v.cantidad_deudas,
             "total_deuda": float(v.total_deuda),
             "deudas": deudas_list
         })
 
     return resultado
+
 
 @router.get("/deudas/{usuario_id}")
 def obtener_deudas_usuario(usuario_id: int, db: Session = Depends(get_db)):
@@ -89,9 +95,7 @@ def obtener_deudas_usuario(usuario_id: int, db: Session = Depends(get_db)):
         "total_deuda": float(total_deuda),
         "deudas": resultado
     }
-    
-UPLOAD_DIR = "uploads/comprobantes"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 @router.post("/registrar-pago")
 async def registrar_pago(
@@ -141,5 +145,66 @@ def aprobar_pago(deuda_id: int, db: Session = Depends(get_db)):
     deuda.estado = "pagado"
     db.commit()
     db.refresh(deuda)
+    
+    mensaje = f"Tu pago de ${deuda.monto:.2f} (deuda #{deuda.id}) ha sido aprobado ✅"
+    n = Notificacion(vendedora_id=deuda.vendedora_id, mensaje=mensaje)
+    db.add(n)
+    db.commit()
 
     return {"message": f"Deuda {deuda_id} aprobada correctamente", "deuda_id": deuda.id}
+
+from schemas import DeudaExcesoCreate
+
+@router.post("/crear-exceso")
+def crear_exceso(
+    data: DeudaExcesoCreate,
+    db: Session = Depends(get_db)
+):
+    vendedora = db.query(Vendedora).filter(Vendedora.id == data.usuario_id).first()
+    if not vendedora:
+        raise HTTPException(status_code=404, detail="Vendedora no encontrada")
+
+    nueva_deuda = Deuda(
+        vendedora_id=data.usuario_id,
+        monto=data.monto,
+        referencia=f"{data.monto} excedió el límite",
+        tipo=data.tipo,
+        fecha=datetime.now(),
+        estado="pendiente"
+    )
+    db.add(nueva_deuda)
+    db.commit()
+    db.refresh(nueva_deuda)
+
+    return {
+        "message": "Deuda creada exitosamente",
+        "deuda": {
+            "id": nueva_deuda.id,
+            "usuario_id": data.usuario_id,
+            "monto": float(data.monto),
+            "tipo": data.tipo,
+            "fecha": nueva_deuda.fecha.strftime("%Y-%m-%d %H:%M:%S"),
+            "estado": nueva_deuda.estado
+        }
+    }
+
+@router.post("/rechazar-pago/{deuda_id}")
+def rechazar_pago(deuda_id: int, db: Session = Depends(get_db)):
+    deuda = db.query(Deuda).filter(Deuda.id == deuda_id).first()
+    if not deuda:
+        raise HTTPException(status_code=404, detail="Deuda no encontrada")
+    
+    if deuda.estado != "pendiente_verificacion":
+        raise HTTPException(status_code=400, detail="La deuda no está en estado pendiente de verificación")
+    
+    # Cambiar estado a rechazado
+    deuda.estado = "rechazado"
+    db.commit()
+    db.refresh(deuda)
+    
+    mensaje = f"Tu pago de ${deuda.monto:.2f} (deuda #{deuda.id}) fue rechazado. Por favor revisa el comprobante o contacta soporte."
+    n = Notificacion(vendedora_id=deuda.vendedora_id, mensaje=mensaje)
+    db.add(n)
+    db.commit()
+    
+    return {"message": f"Deuda {deuda_id} rechazada correctamente", "deuda_id": deuda.id}

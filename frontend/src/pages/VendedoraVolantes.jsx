@@ -9,6 +9,7 @@ export default function VendedoraVolantes({
   setTotalHoy,
   setTotalSemana,
   limits,
+  onConfirmarImpresion,
 }) {
   const { user } = useContext(AuthContext);
   const [volantes, setVolantes] = useState([]);
@@ -273,6 +274,9 @@ export default function VendedoraVolantes({
                   setConteosDiarios(resetDiarios);
                   setConteosSemanales(resetSemanales);
                   setHaySeleccion(false);
+                  if (onConfirmarImpresion) {
+                    await onConfirmarImpresion();
+                  }
                 }}
               >
                 Confirmar Impresión
