@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useCallback } from "react";
 import { FaPrint, FaFileAlt, FaSun, FaMoon, FaBell } from "react-icons/fa";
 import axios from "axios";
 import VendedoraVolantes from "./VendedoraVolantes";
@@ -56,7 +56,7 @@ export default function VendedoraDashboard() {
   const totalExceso = (excesoDiario + excesoSemanal) * COSTO_EXTRA;
 
   // 🔹 Traer deudas
-  const fetchDeudas = async () => {
+  const fetchDeudas = useCallback(async () => {
     if (!user?.id) return;
     setLoadingDeudas(true);
     try {
@@ -70,19 +70,14 @@ export default function VendedoraDashboard() {
     } finally {
       setLoadingDeudas(false);
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
     fetchDeudas();
-  }, [user]);
+  }, [fetchDeudas]);
 
-  useEffect(() => {
-    fetchNotificacionesVendedora();
-    const interval = setInterval(fetchNotificacionesVendedora, 10000); // cada 10s, ajusta si quieres
-    return () => clearInterval(interval);
-  }, [user]);
-
-  const fetchNotificacionesVendedora = async () => {
+  // 🔹 Traer notificaciones
+  const fetchNotificacionesVendedora = useCallback(async () => {
     if (!user?.id) return;
     try {
       const res = await axios.get(
@@ -92,7 +87,13 @@ export default function VendedoraDashboard() {
     } catch (err) {
       console.error("Error al traer notificaciones:", err);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchNotificacionesVendedora();
+    const interval = setInterval(fetchNotificacionesVendedora, 10000); // cada 10s
+    return () => clearInterval(interval);
+  }, [fetchNotificacionesVendedora]);
 
   const marcarNotificacionLeida = async (id) => {
     try {
