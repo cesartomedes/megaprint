@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.routing import APIRoute
 import os
+from sqlalchemy import inspect as sa_inspect
 
 # Routers
 from routes import auth, volantes, vendedoras, categorias, pagos, catalogos, dashboard, admin, impresiones, deudas, notificaciones
@@ -13,6 +14,9 @@ from database import Base, engine
 
 # Crear tablas si no existen
 Base.metadata.create_all(bind=engine)
+inspector = sa_inspect(engine)
+print("Tablas en la DB:", inspector.get_table_names())
+print("Columnas en 'impresiones' según SQLAlchemy:", [c["name"] for c in inspector.get_columns("impresiones")])
 
 app = FastAPI(title="Sistema de Volantes")
 
@@ -30,10 +34,10 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # para test rápido
+    allow_origins=origins,        # <-- los orígenes permitidos
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],          # permite GET, POST, etc.
+    allow_headers=["*"],          # permite todos los headers
 )
 
 # Routers principales

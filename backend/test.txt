@@ -1,1 +1,0 @@
-impresion desde fastAPI con MEGAPRINT

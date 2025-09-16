@@ -40,6 +40,7 @@ class Catalogo(Base):
     categoria_id = Column(Integer, ForeignKey("categorias.id"))
     vendedora_id = Column(Integer, ForeignKey("vendedoras.id"), nullable=True)
     url = Column(String)
+    archivo = Column(String, nullable=True) 
 
     categoria = relationship("Categoria")
     vendedora = relationship("Vendedora")
@@ -68,7 +69,7 @@ class Impresion(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey("vendedoras.id"), nullable=False)
-    volante_id = Column(Integer, ForeignKey("volantes.id"), nullable=False)
+    catalogo_id = Column(Integer, ForeignKey("catalogos.id"))
     fecha = Column(Date, nullable=False)
     cantidad_impresa = Column(Integer, nullable=False)
     exceso = Column(Integer, default=0)
@@ -76,14 +77,14 @@ class Impresion(Base):
     creado_en = Column(TIMESTAMP, server_default=func.now())
 
     vendedora = relationship("Vendedora")
-    volante = relationship("Volante")
+    catalogo = relationship("Catalogo")
 
 # -----------------------------
 # PAGO
 # -----------------------------
 class Pago(Base):
     __tablename__ = "pagos"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = {"extend_existing": True} 
 
     id = Column(Integer, primary_key=True, index=True)
     vendedora_id = Column(Integer, ForeignKey("vendedoras.id"))
