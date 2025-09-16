@@ -43,7 +43,7 @@ export default function AdminImpresiones() {
           datos.push({
             tipo: "Diaria",
             vendedora: nombre,
-            volante: imp.volante.nombre,
+            catalogo: imp.catalogo.nombre,
             total: imp.total,
             creado_en: imp.fecha_hora || imp.creado_en,
           });
@@ -58,7 +58,7 @@ export default function AdminImpresiones() {
           datos.push({
             tipo: "Semanal",
             vendedora: nombre,
-            volante: imp.volante.nombre,
+            catalogo: imp.catalogo.nombre,
             total: imp.total,
             creado_en: imp.fecha_hora || imp.creado_en,
           });
@@ -96,7 +96,7 @@ export default function AdminImpresiones() {
     impresiones.filter(
       (imp) =>
         imp.vendedora.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        imp.volante.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        imp.catalogo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         imp.tipo.toLowerCase().includes(searchTerm.toLowerCase())
     ).length / itemsPerPage
   );
@@ -105,7 +105,7 @@ export default function AdminImpresiones() {
     .filter(
       (imp) =>
         imp.vendedora.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        imp.volante.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        imp.catalogo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         imp.tipo.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -132,18 +132,25 @@ export default function AdminImpresiones() {
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
         <input
           type="text"
-          placeholder="Buscar por vendedora, tipo o volante..."
+          placeholder="Buscar por vendedora, tipo o catalogo..."
           className="p-2 rounded border dark:bg-gray-700 dark:text-white flex-1"
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
+
+      {/* Mensaje de error */}
+      {error && (
+        <p className="text-red-500 text-center mb-4">
+          {error}
+        </p>
+      )}
 
       {/* Desktop Table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead className="bg-gray-100 dark:bg-gray-700 sticky top-0 z-10">
             <tr>
-              {["Tipo", "Vendedora", "Volante", "Cantidad", "Fecha y Hora"].map(
+              {["Tipo", "Vendedora", "catalogo", "Cantidad", "Fecha y Hora"].map(
                 (col) => (
                   <th key={col} className="px-4 py-2 border font-medium">
                     {col}
@@ -177,7 +184,7 @@ export default function AdminImpresiones() {
                     </span>
                   )}
                 </td>
-                <td className="px-2 py-1 border">{imp.volante}</td>
+                <td className="px-2 py-1 border">{imp.catalogo}</td>
                 <td className="px-2 py-1 border">{imp.total}</td>
                 <td className="px-2 py-1 border">
                   {dayjs(imp.creado_en)
@@ -216,7 +223,7 @@ export default function AdminImpresiones() {
               )}
             </div>
             <p className="text-sm font-semibold">{imp.vendedora}</p>
-            <p className="text-sm">{imp.volante}</p>
+            <p className="text-sm">{imp.catalogo}</p>
             <p className="text-sm">{imp.total}</p>
             <p className="text-sm">
               {dayjs(imp.creado_en)
@@ -250,3 +257,4 @@ export default function AdminImpresiones() {
     </div>
   );
 }
+  

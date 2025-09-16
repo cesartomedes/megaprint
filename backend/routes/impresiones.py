@@ -3,43 +3,35 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date, timedelta
 from database import get_db
-from models import Impresion, Volante, Vendedora, Deuda
+from models import Impresion, Vendedora, Deuda, Catalogo
 from routes.config_helper import get_limits
-from schemas import ImpresionCreate
-import win32api
-import threading
-import os
-
-router = APIRouter()
-
-# ── Función para crear o actualizar deuda
-# ── Función para crear o actualizar deuda
-import os
-import threading
-import win32api
+from schemas import ImpresionCreate, ImpresionResponse
 import win32print
-from datetime import date, timedelta
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from database import get_db
-from models import Impresion, Volante, Vendedora, Deuda
-from routes.config_helper import get_limits
-from schemas import ImpresionCreate
+import win32ui
+import win32con
+from PIL import Image
+import threading
+import traceback
+import os
+from .print_utils import print_file 
 
 router = APIRouter()
 
+
 # ── Función para crear o actualizar deuda
-def crear_o_actualizar_deuda(
-    usuario_id: int,
-    monto_extra: float,
-    fecha: date,
-    tipo: str,
-    db: Session,
-    volante_id: int = None,
-    impresion_id: int = None,
-    cantidad_excedida: int = 0
-):
+
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads", "catalogos", "pdf")
+
+# ── Worker de impresión ──────────────────────────────────────
+def _print_worker(file_path: str, cantidad: int = 1):
+    from .print_utils import print_file
+    for _ in range(cantidad):
+        print_file(file_path)
+    
+# ── Crear o actualizar deuda ──────────────────────────────────
+def crear_o_actualizar_deuda(usuario_id: int, monto_extra: float, fecha: date, tipo: str,
+                              db: Session, catalogo_id: int = None, impresion_id: int = None,
+                              cantidad_excedida: int = 0):
     if monto_extra <= 0:
         return None
 
@@ -53,7 +45,7 @@ def crear_o_actualizar_deuda(
     else:  # semanal
         inicio_semana = fecha - timedelta(days=fecha.weekday())
         deuda = db.query(Deuda).filter(
-            Deuda.vendedora_id == usuario_id,
+            Deuda.vendedora_id == usuario_id, 
             Deuda.fecha >= inicio_semana,
             Deuda.tipo == "semanal",
             Deuda.estado == "pendiente"
@@ -63,12 +55,13 @@ def crear_o_actualizar_deuda(
         deuda.monto = monto_extra
         deuda.cantidad_excedida = cantidad_excedida
         deuda.impresion_id = impresion_id
+        deuda.catalogo_id = catalogo_id
         deuda.referencia = f"{cantidad_excedida} excedió el límite"
         deuda.fecha = fecha
     else:
         deuda = Deuda(
             vendedora_id=usuario_id,
-            volante_id=volante_id,
+            catalogo_id=catalogo_id,
             impresion_id=impresion_id,
             monto=monto_extra,
             cantidad_excedida=cantidad_excedida,
@@ -83,112 +76,107 @@ def crear_o_actualizar_deuda(
     db.refresh(deuda)
     return deuda
 
-# ── Worker de impresión
-def _print_worker(file_path: str, printer_name: str = "HPI21F282"):
-    try:
-        if not os.path.exists(file_path):
-            print(f"❌ El archivo {file_path} no existe")
-            return
-        win32api.ShellExecute(0, "print", file_path, f'/d:"{printer_name}"', ".", 0)
-        print(f"✅ Archivo {file_path} enviado a {printer_name}")
-    except Exception as e:
-        print(f"❌ Error al imprimir {file_path}: {e}")
-
-# ── Endpoint crear impresión
-@router.post("/impresiones/")
+# ── Endpoint crear impresión ─────────────────────────────────
+@router.post("/", response_model=ImpresionResponse)
 def crear_impresion(impresion: ImpresionCreate, db: Session = Depends(get_db)):
-    hoy = impresion.fecha
-    inicio_semana = hoy - timedelta(days=hoy.weekday())
+    print("Columnas reconocidas por SQLAlchemy:", Impresion.__table__.columns.keys())
 
-    total_hoy = (
-        db.query(func.sum(Impresion.cantidad_impresa))
-        .filter(Impresion.usuario_id == impresion.usuario_id, Impresion.fecha == hoy)
-        .scalar() or 0
-    )
-    total_semana = (
-        db.query(func.sum(Impresion.cantidad_impresa))
-        .filter(Impresion.usuario_id == impresion.usuario_id, Impresion.fecha >= inicio_semana)
-        .scalar() or 0
-    )
+    try:
+        # Validaciones iniciales
+        usuario_existente = db.query(Impresion).filter(Impresion.usuario_id == impresion.usuario_id).first()
+        if not usuario_existente:
+            print(f"⚠️ Usuario ID {impresion.usuario_id} no tiene impresiones previas, revisa existencia")
+        catalogo = db.query(Catalogo).filter(Catalogo.id == impresion.catalogo_id).first()
+        if not catalogo:
+            raise HTTPException(status_code=404, detail=f"Catálogo ID {impresion.catalogo_id} no encontrado")
 
-    nuevo_total_hoy = total_hoy + impresion.cantidad_impresa
-    nuevo_total_semana = total_semana + impresion.cantidad_impresa
+        hoy = impresion.fecha
+        inicio_semana = hoy - timedelta(days=hoy.weekday())
 
-    limites = get_limits(db)
-    LIMITE_DIARIO = limites.get("diario", 30)
-    LIMITE_SEMANAL = limites.get("semanal", 150)
-    COSTO_EXTRA = limites.get("costoExcedente", 0.5)
+        # Totales actuales
+        total_hoy = db.query(func.sum(Impresion.cantidad_impresa)).filter(
+            Impresion.usuario_id == impresion.usuario_id,
+            Impresion.fecha == hoy
+        ).scalar() or 0
 
-    exceso_diario = max(nuevo_total_hoy - LIMITE_DIARIO, 0)
-    exceso_semanal = max(nuevo_total_semana - LIMITE_SEMANAL, 0)
-    exceso_total = max(exceso_diario, exceso_semanal)
-    costo_extra = exceso_total * COSTO_EXTRA if exceso_total > 0 else 0
+        total_semana = db.query(func.sum(Impresion.cantidad_impresa)).filter(
+            Impresion.usuario_id == impresion.usuario_id,
+            Impresion.fecha >= inicio_semana
+        ).scalar() or 0
 
-    nueva_impresion = Impresion(
-        usuario_id=impresion.usuario_id,
-        volante_id=impresion.volante_id,
-        fecha=hoy,
-        cantidad_impresa=impresion.cantidad_impresa,
-        exceso=exceso_total,
-        costo_extra=costo_extra
-    )
-    db.add(nueva_impresion)
-    db.commit()
-    db.refresh(nueva_impresion)
+        nuevo_total_hoy = total_hoy + impresion.cantidad_impresa
+        nuevo_total_semana = total_semana + impresion.cantidad_impresa
 
-    # ── Enviar a imprimir
-    volante = db.query(Volante).filter(Volante.id == impresion.volante_id).first()
-    if volante and volante.archivo:
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # ruta a backend/
-        file_path = os.path.join(BASE_DIR, "uploads", "catalogos", "pdf", volante.archivo)
-        threading.Thread(target=_print_worker, args=(file_path,), daemon=True).start()
+        # Límites
+        limites = get_limits(db)
+        LIMITE_DIARIO = limites.get("diario", 30)
+        LIMITE_SEMANAL = limites.get("semanal", 150)
+        COSTO_EXTRA = limites.get("costoExcedente", 0.5)
 
-    # ── Crear o actualizar deuda
-    if exceso_diario > 0:
-        crear_o_actualizar_deuda(
+        exceso_diario = max(nuevo_total_hoy - LIMITE_DIARIO, 0)
+        exceso_semanal = max(nuevo_total_semana - LIMITE_SEMANAL, 0)
+        exceso_total = max(exceso_diario, exceso_semanal)
+        costo_extra = exceso_total * COSTO_EXTRA if exceso_total > 0 else 0
+
+        # Crear impresión
+        nueva_impresion = Impresion(
             usuario_id=impresion.usuario_id,
-            monto_extra=exceso_diario * COSTO_EXTRA,
+            catalogo_id=impresion.catalogo_id,
             fecha=hoy,
-            tipo="diaria",
-            db=db,
-            volante_id=impresion.volante_id,
-            impresion_id=nueva_impresion.id,
-            cantidad_excedida=exceso_diario
-        )
-    if exceso_semanal > 0:
-        crear_o_actualizar_deuda(
-            usuario_id=impresion.usuario_id,
-            monto_extra=exceso_semanal * COSTO_EXTRA,
-            fecha=hoy,
-            tipo="semanal",
-            db=db,
-            volante_id=impresion.volante_id,
-            impresion_id=nueva_impresion.id,
-            cantidad_excedida=exceso_semanal
+            cantidad_impresa=impresion.cantidad_impresa,
+            exceso=exceso_total,
+            costo_extra=costo_extra
         )
 
-    return {
-        "mensaje": "Impresión registrada con exceso" if exceso_total > 0 else "Impresión registrada",
-        "limite_diario": LIMITE_DIARIO,
-        "limite_semanal": LIMITE_SEMANAL,
-        "total_hoy": nuevo_total_hoy,
-        "total_semana": nuevo_total_semana,
-        "exceso_diario": exceso_diario,
-        "exceso_semanal": exceso_semanal,
-        "costo_extra": float(costo_extra),
-        "excedido": nuevo_total_hoy > LIMITE_DIARIO,
-        "impresiones_gratis_restantes": max(LIMITE_DIARIO - total_hoy, 0),
-        "impresiones_extras": exceso_diario,
-        "impresion": {
-            "id": nueva_impresion.id,
-            "usuario_id": nueva_impresion.usuario_id,
-            "volante_id": nueva_impresion.volante_id,
-            "fecha": nueva_impresion.fecha,
-            "cantidad_impresa": nueva_impresion.cantidad_impresa,
-        }
-    }
+        db.add(nueva_impresion)
+        db.commit()
+        db.refresh(nueva_impresion)
+        print(f"✅ Impresión registrada: ID {nueva_impresion.id}, usuario {impresion.usuario_id}")
 
-# ── Obtener todas las impresiones
+        # ── Imprimir archivo en segundo plano ──────────────────────
+        file_name = catalogo.archivo or os.path.basename(catalogo.url or "")
+        file_path = os.path.join(UPLOAD_DIR, file_name)
+
+        print(f"Intentando imprimir: {file_path}") 
+
+        if os.path.exists(file_path):
+            threading.Thread(target=_print_worker, args=(file_path,impresion.cantidad_impresa), daemon=True).start()
+        else:
+            print(f"⚠️ Archivo de catálogo no encontrado: {file_path}")
+
+        # ── Crear deudas si hay exceso ────────────────────────────
+        from .impresiones_utils import crear_o_actualizar_deuda
+        if exceso_diario > 0:
+            deuda_diaria = crear_o_actualizar_deuda(
+                usuario_id=impresion.usuario_id,
+                monto_extra=exceso_diario * COSTO_EXTRA,
+                fecha=hoy,
+                tipo="diaria",
+                db=db,
+                catalogo_id=impresion.catalogo_id,
+                impresion_id=nueva_impresion.id,
+                cantidad_excedida=exceso_diario
+            )
+            print(f"⚠️ Deuda diaria creada/actualizada: {deuda_diaria.id if deuda_diaria else 'N/A'}")
+        if exceso_semanal > 0:
+            deuda_semanal = crear_o_actualizar_deuda(
+                usuario_id=impresion.usuario_id,
+                monto_extra=exceso_semanal * COSTO_EXTRA,
+                fecha=hoy,
+                tipo="semanal",
+                db=db,
+                catalogo_id=impresion.catalogo_id,
+                impresion_id=nueva_impresion.id,
+                cantidad_excedida=exceso_semanal
+            )
+            print(f"⚠️ Deuda semanal creada/actualizada: {deuda_semanal.id if deuda_semanal else 'N/A'}")
+
+        return nueva_impresion
+
+    except Exception as e:
+        print("❌ Error en crear_impresion:")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 @router.get("/impresiones/")
 def obtener_todas_impresiones(db: Session = Depends(get_db)):
     vendedoras = db.query(Vendedora).all()
@@ -218,16 +206,17 @@ def obtener_todas_impresiones(db: Session = Depends(get_db)):
             .all()
         )
 
-        ids_volantes = set([imp.volante_id for imp in impresiones_hoy] +
-                           [imp.volante_id for imp in impresiones_semana])
-        volantes = db.query(Volante).filter(Volante.id.in_(ids_volantes)).all()
-        volantes_info = {vol.id: {"id": vol.id, "nombre": vol.nombre, "archivo": vol.archivo} for vol in volantes}
+        # IDs de catálogos
+        ids_catalogos = set([imp.catalogo_id for imp in impresiones_hoy] +
+                            [imp.catalogo_id for imp in impresiones_semana])
+        catalogos = db.query(Catalogo).filter(Catalogo.id.in_(ids_catalogos)).all()
+        catalogos_info = {cat.id: {"id": cat.id, "nombre": cat.nombre, "archivo": cat.archivo} for cat in catalogos}
 
         resultado.append({
             "usuario": {"id": v.id, "nombre": v.nombre},
             "conteosDiarios": [
                 {
-                    "volante": volantes_info.get(imp.volante_id, {"id": imp.volante_id, "nombre": "Desconocido"}),
+                    "catalogo": catalogos_info.get(imp.catalogo_id, {"id": imp.catalogo_id, "nombre": "Desconocido"}),
                     "total": imp.cantidad_impresa,
                     "fecha_hora": imp.creado_en
                 }
@@ -235,7 +224,7 @@ def obtener_todas_impresiones(db: Session = Depends(get_db)):
             ],
             "conteosSemanales": [
                 {
-                    "volante": volantes_info.get(imp.volante_id, {"id": imp.volante_id, "nombre": "Desconocido"}),
+                    "catalogo": catalogos_info.get(imp.catalogo_id, {"id": imp.catalogo_id, "nombre": "Desconocido"}),
                     "total": imp.cantidad_impresa,
                     "fecha_hora": imp.creado_en
                 }
@@ -252,25 +241,25 @@ def obtener_conteos(usuario_id: int, db: Session = Depends(get_db)):
     inicio_semana = hoy - timedelta(days=hoy.weekday())
 
     impresiones_hoy = (
-        db.query(Impresion.volante_id, func.sum(Impresion.cantidad_impresa))
+        db.query(Impresion.catalogo_id, func.sum(Impresion.cantidad_impresa))
         .filter(Impresion.usuario_id == usuario_id, Impresion.fecha == hoy)
-        .group_by(Impresion.volante_id)
+        .group_by(Impresion.catalogo_id)
         .all()
     )
 
     impresiones_semana = (
-        db.query(Impresion.volante_id, func.sum(Impresion.cantidad_impresa))
+        db.query(Impresion.catalogo_id, func.sum(Impresion.cantidad_impresa))
         .filter(Impresion.usuario_id == usuario_id, Impresion.fecha >= inicio_semana)
-        .group_by(Impresion.volante_id)
+        .group_by(Impresion.catalogo_id)
         .all()
     )
 
-    ids_volantes = set([v_id for v_id, _ in impresiones_hoy] + [v_id for v_id, _ in impresiones_semana])
-    volantes = db.query(Volante).filter(Volante.id.in_(ids_volantes)).all()
-    volantes_info = {v.id: {"id": v.id, "nombre": v.nombre, "archivo": v.archivo} for v in volantes}
+    ids_catalogos = set([c_id for c_id, _ in impresiones_hoy] + [c_id for c_id, _ in impresiones_semana])
+    catalogos = db.query(Catalogo).filter(Catalogo.id.in_(ids_catalogos)).all()
+    catalogos_info = {c.id: {"id": c.id, "nombre": c.nombre, "archivo": c.archivo} for c in catalogos}
 
-    conteos_diarios = [{"volante": volantes_info.get(volante_id, {"id": volante_id, "nombre": "Desconocido"}), "total": total} for volante_id, total in impresiones_hoy]
-    conteos_semanales = [{"volante": volantes_info.get(volante_id, {"id": volante_id, "nombre": "Desconocido"}), "total": total} for volante_id, total in impresiones_semana]
+    conteos_diarios = [{"catalogo": catalogos_info.get(catalogo_id, {"id": catalogo_id, "nombre": "Desconocido"}), "total": total} for catalogo_id, total in impresiones_hoy]
+    conteos_semanales = [{"catalogo": catalogos_info.get(catalogo_id, {"id": catalogo_id, "nombre": "Desconocido"}), "total": total} for catalogo_id, total in impresiones_semana]
 
     return {
         "conteosDiarios": conteos_diarios,

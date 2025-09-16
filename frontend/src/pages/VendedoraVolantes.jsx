@@ -99,9 +99,9 @@ export default function VendedoraVolantes({
   const registrarImpresion = async (volanteId, cantidad = 1) => {
     if (!user?.id) return;
     try {
-      await axios.post("http://localhost:8000/impresiones/impresiones/", {
+      await axios.post("http://localhost:8000/impresiones/", {
         usuario_id: user.id,
-        volante_id: volanteId,
+        catalogo_id: volanteId,
         fecha: new Date().toISOString().split("T")[0],
         cantidad_impresa: cantidad,
       });
